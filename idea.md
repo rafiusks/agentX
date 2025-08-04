@@ -65,39 +65,93 @@ AgentX requires a robust tech stack to support autonomous agent operations:
 - **Concurrent streams**: 100+ without degradation
 - **Binary size**: <10MB compressed
 
-### The AI IDE Architecture
+### The AI IDE Architecture: Three Layers of Simplicity
+
+AgentX adapts to your expertise level, revealing complexity only when you need it:
+
+#### Layer 1: Consumer Simple (Default View)
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    Task Canvas (UI)                      │
-│  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐   │
-│  │ Task A  │  │ Task B  │  │ Task C  │  │ Task D  │   │
-│  │ 🔄 75%  │──▶│ ⏸️ Wait │  │ ✅ Done │  │ 🚀 Run  │   │
-│  └─────────┘  └─────────┘  └─────────┘  └─────────┘   │
-└──────────────────────────┬──────────────────────────────┘
-                           │
-┌──────────────────────────▼──────────────────────────────┐
-│                 Agent Orchestrator                       │
-│  • Task decomposition   • Agent assignment              │
-│  • Dependency tracking  • Resource allocation           │
-└──────────────────────────┬──────────────────────────────┘
-                           │
-┌──────────────────────────▼──────────────────────────────┐
-│                  Agent Pool (Parallel)                   │
-├─────────────┬─────────────┬─────────────┬──────────────┤
-│ Architect   │ Implementer │    Test     │   DevOps     │
-│   Agent     │   Agents    │   Agent     │   Agent      │
-├─────────────┼─────────────┼─────────────┼──────────────┤
-│ • Design    │ • Code Gen  │ • Test Gen  │ • Deploy     │
-│ • Patterns  │ • Refactor  │ • Validate  │ • Monitor    │
-│ • Review    │ • Optimize  │ • Coverage  │ • Scale      │
-└─────────────┴─────────────┴─────────────┴──────────────┘
-                           │
-┌──────────────────────────▼──────────────────────────────┐
-│              Shared Agent Infrastructure                 │
-├──────────────────────────────────────────────────────────┤
-│ Context Store │ Event Bus │ Execution Sandbox │ Models  │
-│  (VectorDB)   │  (NATS)   │   (Firecracker)  │ (Multi) │
-└──────────────────────────────────────────────────────────┘
+│                                                         │
+│           What would you like to create?                │
+│                                                         │
+│           [                                    ] 🎤     │
+│                                                         │
+│     Quick ideas:                                        │
+│     • Build a web app  • Analyze data  • Write docs    │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+
+Hidden: All agents, infrastructure, and technical details
+Visible: Just a simple prompt, like Spotlight
+```
+
+#### Layer 2: Prosumer Power (After 5+ Uses)
+```
+┌─────────────────────────────────────────────────────────┐
+│  Mission Control                                   •••  │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│  Current Mission: Building authentication system        │
+│  ████████████░░░░░░  67%  ~12 min remaining           │
+│                                                         │
+│  Your Team:                                             │
+│  🏗️ Builder  🧪 Tester  🚀 Deployer  [+ Add Agent]     │
+│                                                         │
+│  [What's next?                                    ] 🎤  │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+
+Progressive reveal: Core agents visible, advanced hidden
+Smart defaults: Most common agents pre-selected
+```
+
+#### Layer 3: Professional Deep (Pro Mode - ⌘⇧P)
+```
+┌─────────────────────────────────────────────────────────┐
+│  AgentX Pro - Full Control                         •••  │
+├─────────────────────────────────────────────────────────┤
+│ ┌─ Task Canvas ─────────┐ ┌─ Agent Inspector ─────────┐│
+│ │ ┌─────┐    ┌─────┐   │ │ Active: Builder-03        ││
+│ │ │Auth │───▶│ API │   │ │ Model: GPT-4             ││
+│ │ │ 75% │    │ 45% │   │ │ Tokens: 2,341/4,096      ││
+│ │ └─────┘    └─────┘   │ │ Confidence: 94%          ││
+│ │          ↓            │ │ [Parameters] [Logs]      ││
+│ │      ┌─────┐         │ └────────────────────────────┘│
+│ │      │ DB  │         │ ┌─ Infrastructure ───────────┐│
+│ │      │ 90% │         │ │ NATS: ● Connected         ││
+│ │      └─────┘         │ │ VectorDB: ● 2.3GB        ││
+│ └───────────────────────┘ │ Sandbox: ● 3 Active      ││
+│                           └────────────────────────────┘│
+│ ┌─ Command Palette (⌘K) ───────────────────────────────┐│
+│ │ > _                                                   ││
+│ └───────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────┘
+
+Full visibility: Every agent, metric, and system visible
+Total control: Direct manipulation of all components
+```
+
+### Progressive Disclosure: Features Reveal Naturally
+
+```
+Day 1 → Day 30 Journey:
+
+Day 1:  "What would you like to create?"
+        User: "A todo app"
+        Result: Complete app built, no complexity shown
+
+Day 7:  "+ Tip: Say 'with authentication' to add user accounts"
+        Interface shows successful patterns
+
+Day 14: "⚡ Quick Action: Press ⌘K to see what else I can do"
+        Command palette reveals hidden features
+
+Day 21: "🎯 You're productive! Try combining agents with '+'"
+        Multi-agent workflows become visible
+
+Day 30: "🚀 Ready for Pro Mode? See everything with ⌘⇧P"
+        Full complexity available but not required
 ```
 
 ### Core Components
@@ -211,6 +265,80 @@ CSRF protection on logout endpoint. Providing secure
 implementation patterns..."
 ```
 
+## Smart Defaults & Intelligent Automation
+
+AgentX makes complex decisions simple by intelligently automating the 80% case while keeping full control available.
+
+### Zero-Configuration Intelligence
+
+```rust
+// Behind the scenes: Complex decision making
+match analyze_user_input(&input) {
+    Intent::WebApp => {
+        agents: vec![Architect, Builder, Tester, Deployer],
+        stack: infer_from_context(), // React if mentioned JS, Rails if Ruby
+        database: auto_select_db(),   // Postgres for complex, SQLite for simple
+        testing: match_user_style(),  // Jest vs Mocha based on history
+    }
+    Intent::DataAnalysis => {
+        agents: vec![DataAgent, Visualizer],
+        format: detect_input_type(),  // CSV, JSON, SQL auto-detected
+        output: prefer_from_history(), // Jupyter, Excel, or Dashboard
+    }
+}
+
+// User sees:
+"I'll help you build that web app. Starting now..."
+[Progress bar showing real work happening]
+```
+
+### Intelligent Agent Bundling
+
+When users request complex tasks, AgentX automatically assembles the right team:
+
+```
+User: "Create a SaaS app with payments and user management"
+
+AgentX automatically activates:
+┌─────────────────────────────────────────┐
+│ 🎯 Mission: SaaS Application            │
+│                                         │
+│ Auto-assembled team:                    │
+│ • 🏗️ Architect (system design)         │
+│ • 👤 Auth Expert (user management)     │
+│ • 💳 Payment Specialist (Stripe)       │
+│ • 🛠️ Builders (3 parallel)             │
+│ • 🧪 Test Squadron (security + e2e)    │
+│                                         │
+│ All configuration automatic.            │
+│ Override any decision with ⌥-click.    │
+└─────────────────────────────────────────┘
+```
+
+### Context-Aware Decisions
+
+```python
+# Time-based intelligence
+if current_time in business_hours:
+    prefer_agents: ["productivity", "analytical"]
+    tone: "professional"
+else:
+    prefer_agents: ["creative", "experimental"]
+    tone: "casual"
+
+# Learning from patterns
+if user_frequently_adjusts(setting="tone"):
+    surface_tone_selector_early()
+    
+if user_combines_agents(["Builder", "Tester"]) > 5:
+    suggest_workflow_template("Build & Test")
+
+# Smart resource allocation
+if detecting_large_project():
+    auto_scale_infrastructure()
+    pre_warm_additional_agents()
+```
+
 ## Human-Agent Interaction Patterns
 
 ### Delegation Mode
@@ -258,6 +386,89 @@ Agent Activity Monitor:
 │ • Added retry logic with backoff        │
 │ [Pause] [Modify] [Take Over]            │
 └─────────────────────────────────────────┘
+```
+
+## Elegant Power Features
+
+AgentX hides immense power behind simple, discoverable interactions:
+
+### Command Palette (⌘K)
+```
+┌─────────────────────────────────────────────────────────┐
+│ ⌘ Quick Actions                                        │
+├─────────────────────────────────────────────────────────┤
+│ > build authentication system                           │
+│   📝 Create full auth with JWT tokens                  │
+│                                                         │
+│ > test everything                                       │
+│   🧪 Run all tests across the project                  │
+│                                                         │
+│ > deploy to production                                  │
+│   🚀 Deploy with zero downtime                         │
+│                                                         │
+│ > show me pro mode                                      │
+│   👁️ Toggle professional view (⌘⇧P)                    │
+└─────────────────────────────────────────────────────────┘
+
+Type naturally, we understand intent
+Press ↑↓ to navigate, ⏎ to execute, ⎋ to cancel
+```
+
+### Gesture Controls
+- **Pinch Out**: Zoom from simple → pro interface
+- **Two-finger swipe**: Navigate between active missions
+- **Three-finger tap**: Quick agent switch
+- **Long press**: Reveal advanced options
+- **Shake gesture**: Undo last action
+
+### Hidden Shortcuts for Power Users
+```
+Regular users never need these, but they're there:
+
+⌘N          New mission
+⌘⇧N         New mission with custom agents
+⌘1-9        Switch to mission 1-9
+⌘D          Duplicate current mission
+⌘/          Toggle agent visibility
+
+⌥-drag      Process files in parallel
+⌘-Return    Execute with variations
+⌘-click     Override any automatic decision
+⌘⌥-click    See why a decision was made
+
+@agent      Inline agent invocation
+::param     Inline parameter override
+++combo     Chain agent commands
+```
+
+### Progressive Onboarding Flow
+
+```
+First Launch Experience:
+┌─────────────────────────────────────────────────────────┐
+│                                                         │
+│              Welcome to AgentX ✨                       │
+│                                                         │
+│     Tell me what you'd like to build, and I'll         │
+│          make it happen. No setup required.             │
+│                                                         │
+│           [                                    ]         │
+│                                                         │
+│          Or try: "Build a todo app" ⏎                  │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+
+After first success:
+"🎉 Great job! You just built your first app in 30 seconds.
+ Want to see what else we can do together?"
+
+Progressive feature introduction:
+Day 1:  Basic prompting
+Day 3:  "Tip: Try adding 'with tests' to any request"
+Day 7:  "⚡ Press ⌘K to see quick actions"
+Day 14: "You're ready for agent combinations. Try: build + test"
+Day 21: "Unlock shortcuts with ⌘?"
+Day 30: "🚀 You're a power user! Enable Pro Mode?"
 ```
 
 ## Open Source Roadmap
