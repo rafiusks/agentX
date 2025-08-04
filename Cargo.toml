@@ -1,0 +1,59 @@
+[package]
+name = "agentx"
+version = "0.1.0"
+edition = "2021"
+authors = ["AgentX Team"]
+description = "AI IDE where agents do the building while humans do the thinking"
+license = "MIT"
+repository = "https://github.com/community/agentx"
+
+[dependencies]
+# Async runtime
+tokio = { version = "1.43", features = ["full"] }
+
+# Terminal UI
+ratatui = "0.29"
+crossterm = "0.28"
+
+# Error handling
+anyhow = "1.0"
+thiserror = "2.0"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Async traits
+async-trait = "0.1"
+
+# Utilities
+uuid = { version = "1.11", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+fuzzy-matcher = "0.3"
+regex = "1.10"
+which = "6.0"
+tempfile = "3.8"
+tokio-stream = { version = "0.1", features = ["fs"] }
+futures = "0.3"
+
+# For future phases
+# nats = "0.25"
+# qdrant-client = "1.12"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+
+[profile.dev]
+opt-level = 0
+debug = true
+
+[[example]]
+name = "ai_features_demo"
+path = "examples/ai_features_demo.rs"

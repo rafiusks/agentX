@@ -2,7 +2,7 @@
 
 ## A Paradigm Shift in How We Build Software
 
-AgentX isn't another code editor with AI features. It's a fundamental reimagining of software development where **AI agents do the building while humans do the thinking**.
+AgentX isn't another code editor with AI features. It's a fundamental reimagining of software development where **AI agents do the building while humans do the thinking**, wrapped in a terminal interface inspired by modern tools like Warp that make power accessible through elegance.
 
 ### From Code Editing to Agent Orchestration
 
@@ -67,7 +67,7 @@ AgentX requires a robust tech stack to support autonomous agent operations:
 
 ### The AI IDE Architecture: Three Layers of Simplicity
 
-AgentX adapts to your expertise level, revealing complexity only when you need it:
+AgentX adapts to your expertise level, revealing complexity only when you need it. Taking inspiration from Warp's blocks-based architecture and modern aesthetics, we've created an interface that feels as sophisticated as it is powerful:
 
 #### Layer 1: Consumer Simple (Default View)
 ```
@@ -91,9 +91,17 @@ Visible: Just a simple prompt, like Spotlight
 ┌─────────────────────────────────────────────────────────┐
 │  Mission Control                                   •••  │
 ├─────────────────────────────────────────────────────────┤
+│ ╭─ Command Block ─────────────────────── 12:34:56 ────╮ │
+│ │ $ build authentication system                        │ │
+│ │ ▶ Launching Builder, Tester, and Security agents... │ │
+│ ╰──────────────────────────────────────────────────────╯ │
 │                                                         │
-│  Current Mission: Building authentication system        │
-│  ████████████░░░░░░  67%  ~12 min remaining           │
+│ ╭─ Output Block ──────────────────────── Running ─────╮ │
+│ │ ████████████░░░░░░  67%  ~12 min remaining         │ │
+│ │ ✓ Database schema created                           │ │
+│ │ ✓ JWT implementation complete                       │ │
+│ │ ⟳ Writing integration tests...                      │ │
+│ ╰──────────────────────────────────────────────────────╯ │
 │                                                         │
 │  Your Team:                                             │
 │  🏗️ Builder  🧪 Tester  🚀 Deployer  [+ Add Agent]     │
@@ -102,6 +110,7 @@ Visible: Just a simple prompt, like Spotlight
 │                                                         │
 └─────────────────────────────────────────────────────────┘
 
+Warp-inspired blocks: Each command and output in distinct visual containers
 Progressive reveal: Core agents visible, advanced hidden
 Smart defaults: Most common agents pre-selected
 ```
@@ -111,25 +120,34 @@ Smart defaults: Most common agents pre-selected
 ┌─────────────────────────────────────────────────────────┐
 │  AgentX Pro - Full Control                         •••  │
 ├─────────────────────────────────────────────────────────┤
-│ ┌─ Task Canvas ─────────┐ ┌─ Agent Inspector ─────────┐│
-│ │ ┌─────┐    ┌─────┐   │ │ Active: Builder-03        ││
-│ │ │Auth │───▶│ API │   │ │ Model: GPT-4             ││
-│ │ │ 75% │    │ 45% │   │ │ Tokens: 2,341/4,096      ││
-│ │ └─────┘    └─────┘   │ │ Confidence: 94%          ││
-│ │          ↓            │ │ [Parameters] [Logs]      ││
-│ │      ┌─────┐         │ └────────────────────────────┘│
-│ │      │ DB  │         │ ┌─ Infrastructure ───────────┐│
-│ │      │ 90% │         │ │ NATS: ● Connected         ││
-│ │      └─────┘         │ │ VectorDB: ● 2.3GB        ││
-│ └───────────────────────┘ │ Sandbox: ● 3 Active      ││
-│                           └────────────────────────────┘│
-│ ┌─ Command Palette (⌘K) ───────────────────────────────┐│
-│ │ > _                                                   ││
-│ └───────────────────────────────────────────────────────┘│
+│ ┌─ Command Blocks History ──────┐ ┌─ Agent Inspector ─┐│
+│ │ ╭─ Block #1 ─ 12:34:56 ─────╮│ │ Active: Builder-03 ││
+│ │ │ $ setup auth system       ││ │ Model: GPT-4       ││
+│ │ │ ✓ Completed in 2m 34s     ││ │ Tokens: 2,341/4K   ││
+│ │ ╰────────────────────────────╯│ │ Confidence: 94%    ││
+│ │ ╭─ Block #2 ─ 12:37:30 ─────╮│ │ [Parameters][Logs] ││
+│ │ │ $ add oauth providers     ││ └────────────────────┘│
+│ │ │ ⟳ Running... 67%          ││ ┌─ AI Assistant ──────┐│
+│ │ ╰────────────────────────────╯│ │ 💡 Suggestion:      ││
+│ └────────────────────────────────┘ │ Add rate limiting   ││
+│ ┌─ Multi-line Editor ───────────┐ │ to auth endpoints   ││
+│ │ func authenticate(user) {█    │ │ [Apply] [Dismiss]   ││
+│ │   // Natural language mode    │ └────────────────────┘│
+│ │   // enabled with Ctrl+N      │ ┌─ Infrastructure ────┐│
+│ │ }                             │ │ NATS: ● Connected   ││
+│ │ [Run ⏎] [Clear ⌫] [Mode ⌃N] │ │ Vector: ● 2.3GB     ││
+│ └────────────────────────────────┘ │ Agents: ● 3 Active  ││
+│ ┌─ Command Palette (⌘K) ─────────┐ └────────────────────┘│
+│ │ > Recent: deploy to staging    │ [Tab] Navigate blocks  │
+│ └────────────────────────────────┘ [⌘K] Command palette  │
 └─────────────────────────────────────────────────────────┘
 
-Full visibility: Every agent, metric, and system visible
-Total control: Direct manipulation of all components
+Warp-inspired features:
+- Blocks-based command history with visual separation
+- Multi-line editor with syntax highlighting
+- AI suggestions inline with your workflow
+- Natural language mode for conversational commands
+- Command palette with fuzzy search and recent commands
 ```
 
 ### Progressive Disclosure: Features Reveal Naturally
@@ -392,25 +410,33 @@ Agent Activity Monitor:
 
 AgentX hides immense power behind simple, discoverable interactions:
 
-### Command Palette (⌘K)
+### Command Palette (⌘K) - Warp-Inspired
 ```
 ┌─────────────────────────────────────────────────────────┐
-│ ⌘ Quick Actions                                        │
+│ ⌘ AgentX Command Palette                               │
 ├─────────────────────────────────────────────────────────┤
-│ > build authentication system                           │
-│   📝 Create full auth with JWT tokens                  │
-│                                                         │
-│ > test everything                                       │
-│   🧪 Run all tests across the project                  │
-│                                                         │
-│ > deploy to production                                  │
-│   🚀 Deploy with zero downtime                         │
-│                                                         │
-│ > show me pro mode                                      │
-│   👁️ Toggle professional view (⌘⇧P)                    │
+│ 🔍 Search commands, workflows, or type naturally...     │
+│ ┌─────────────────────────────────────────────────────┐│
+│ │ > _                                                  ││
+│ └─────────────────────────────────────────────────────┘│
+├─────────────────────────────────────────────────────────┤
+│ Recent Commands                                         │
+│ ⏱  build auth system                        2 min ago  │
+│ ⏱  run tests                               15 min ago  │
+│ ⏱  deploy to staging                        1 hr ago  │
+├─────────────────────────────────────────────────────────┤
+│ Workflows                                               │
+│ ⚡ Full Stack CRUD        Build complete CRUD feature   │
+│ ⚡ Add Authentication     JWT + OAuth in one command    │
+│ ⚡ Performance Audit      Analyze and optimize speed    │
+├─────────────────────────────────────────────────────────┤
+│ AI Actions                                              │
+│ 🤖 Explain this error    AI analyzes recent errors     │
+│ 🤖 Suggest improvements  AI reviews current code       │
+│ 🤖 Natural language mode Toggle conversational input   │
 └─────────────────────────────────────────────────────────┘
 
-Type naturally, we understand intent
+Warp-style categorization with smart search
 Press ↑↓ to navigate, ⏎ to execute, ⎋ to cancel
 ```
 
@@ -1015,8 +1041,20 @@ nix-shell -p agentx
 ## Current Status
 
 - [x] Basic terminal UI
+- [x] Warp-inspired terminal interface
+  - [x] Blocks-based command architecture
+  - [x] Advanced command input editor
+  - [x] Command palette with categorization
+  - [x] Modern dark theme with translucency
+- [x] AI Intelligence Layer
+  - [x] Natural language processing
+  - [x] Error diagnosis and recovery
+  - [x] Smart command suggestions
+  - [x] Context management system
+- [x] Progressive UI system (3 layers)
 - [x] Ollama integration
 - [x] Claude Code SDK integration
+- [ ] Agent orchestration system
 - [ ] Conversation management
 - [ ] Mode routing logic
 - [ ] First public release
