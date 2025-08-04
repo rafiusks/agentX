@@ -110,6 +110,38 @@ lcov.info
 /config/local/
 agentx.local.toml
 
+# Tauri specific
+/src-tauri/target/
+/dist/
+/node_modules/
+
+# Frontend build
+/build/
+/.next/
+/out/
+
+# Test files and scripts
+test-*.js
+test-*.sh
+*.test.js
+*.spec.js
+/test-results/
+
+# MCP test servers
+simple-test-server.js
+test-mcp-ollama.js
+debug-*.js
+
+# Documentation drafts
+*_ISSUE.md
+*_GUIDE.md
+OLLAMA_*.md
+
+# Package manager files
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
 # Performance profiling
 perf.data
 perf.data.old
@@ -131,6 +163,16 @@ flamegraph.svg
 # Claude-specific files (if any local caches)
 #.claude/
 claude_cache/
+
+# Config files that might contain API keys
+.env*
+!.env.example
+agentx-config.json
+
+# Rust workspace
+/Cargo.lock
+# Uncomment if this is a binary crate:
+#!/Cargo.lock
 
 # Debug files
 *.dSYM/
