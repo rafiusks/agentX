@@ -335,6 +335,137 @@ async fn get_provider_settings(
 }
 
 #[tauri::command]
+async fn test_function_calling(
+    state: State<'_, AppState>,
+    message: String,
+    window: tauri::Window,
+) -> Result<(), String> {
+    let config = state.config.lock().await;
+    let provider = create_provider(&config, Some("local".to_string())).await
+        .map_err(|e| format!("Failed to create provider: {}", e))?;
+    
+    // Create test functions
+    let test_functions = vec![
+        crate::providers::Function {
+            name: "get_weather".to_string(),
+            description: "Get the current weather for a location".to_string(),
+            parameters: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "location": {
+                        "type": "string",
+                        "description": "The city and state, e.g. San Francisco, CA"
+                    },
+                    "unit": {
+                        "type": "string",
+                        "enum": ["celsius", "fahrenheit"],
+                        "description": "The temperature unit"
+                    }
+                },
+                "required": ["location"]
+            }),
+        },
+        crate::providers::Function {
+            name: "calculate".to_string(),
+            description: "Perform basic arithmetic calculations".to_string(),
+            parameters: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "expression": {
+                        "type": "string",
+                        "description": "The mathematical expression to evaluate"
+                    }
+                },
+                "required": ["expression"]
+            }),
+        },
+    ];
+    
+    // Create messages
+    let messages = vec![
+        crate::providers::Message {
+            role: crate::providers::MessageRole::System,
+            content: "You are a helpful assistant with access to functions. Use them when appropriate.".to_string(),
+            function_call: None,
+        },
+        crate::providers::Message {
+            role: crate::providers::MessageRole::User,
+            content: message,
+            function_call: None,
+        },
+    ];
+    
+    let request = crate::providers::CompletionRequest {
+        messages,
+        model: config.default_model.clone(),
+        temperature: Some(0.7),
+        max_tokens: Some(1000),
+        stream: true,
+        functions: Some(test_functions),
+        tool_choice: Some(crate::providers::ToolChoice::Auto),
+    };
+    
+    // Stream completion
+    match provider.stream_complete(request).await {
+        Ok(mut stream) => {
+            use futures::StreamExt;
+            
+            while let Some(chunk_result) = stream.next().await {
+                match chunk_result {
+                    Ok(chunk) => {
+                        // Emit streaming response
+                        let payload = serde_json::json!({
+                            "content": chunk.delta,
+                            "finish_reason": chunk.finish_reason,
+                            "function_call": chunk.function_call_delta.map(|fc| {
+                                serde_json::json!({
+                                    "name": fc.name,
+                                    "arguments": fc.arguments
+                                })
+                            })
+                        });
+                        
+                        window.emit("test-function-stream", payload)
+                            .map_err(|e| format!("Failed to emit event: {}", e))?;
+                        
+                        // If we got a complete function call, simulate executing it
+                        if let Some(fc) = chunk.function_call_delta {
+                            if fc.name.is_some() && fc.arguments.is_some() {
+                                let result = match fc.name.as_deref() {
+                                    Some("get_weather") => {
+                                        "Sunny, 72°F (22°C) with light clouds"
+                                    }
+                                    Some("calculate") => {
+                                        "Result: 100"
+                                    }
+                                    _ => "Function executed successfully"
+                                };
+                                
+                                window.emit("test-function-result", serde_json::json!({
+                                    "function": fc.name,
+                                    "result": result
+                                })).ok();
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        window.emit("stream-error", format!("Stream error: {}", e)).ok();
+                        break;
+                    }
+                }
+            }
+            
+            window.emit("stream-end", "").ok();
+        }
+        Err(e) => {
+            return Err(format!("Stream error: {}", e));
+        }
+    }
+    
+    Ok(())
+}
+
+#[tauri::command]
 async fn discover_models(
     state: State<'_, AppState>,
     provider_id: String,
@@ -574,6 +705,7 @@ pub fn run() {
             update_provider_settings,
             get_provider_settings,
             discover_models,
+            test_function_calling,
             add_mcp_server,
             remove_mcp_server,
             list_mcp_tools,

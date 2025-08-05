@@ -25,7 +25,7 @@ export interface ChatSession {
 interface ChatState {
   sessions: ChatSession[]
   currentSessionId: string | null
-  currentProvider: string | null
+  currentConnectionId: string | null
   
   // Actions
   createSession: () => string
@@ -33,14 +33,14 @@ interface ChatState {
   setCurrentSession: (id: string) => void
   addMessage: (sessionId: string, message: Omit<Message, 'id' | 'timestamp'>) => void
   updateMessage: (sessionId: string, messageId: string, content: string, isStreaming?: boolean) => void
-  setCurrentProvider: (provider: string) => void
+  setCurrentConnectionId: (connectionId: string) => void
   clearSessions: () => void
 }
 
 export const useChatStore = create<ChatState>((set) => ({
   sessions: [],
   currentSessionId: null,
-  currentProvider: null,
+  currentConnectionId: null,
   
   createSession: () => {
     const id = crypto.randomUUID()
@@ -112,8 +112,8 @@ export const useChatStore = create<ChatState>((set) => ({
     }))
   },
   
-  setCurrentProvider: (provider) => {
-    set({ currentProvider: provider })
+  setCurrentConnectionId: (connectionId) => {
+    set({ currentConnectionId: connectionId })
   },
   
   clearSessions: () => {

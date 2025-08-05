@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: agentx-postgres
+    environment:
+      POSTGRES_USER: agentx
+      POSTGRES_PASSWORD: agentx
+      POSTGRES_DB: agentx
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agentx"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - agentx-network
+
+  # Go Backend
+  backend:
+    build:
+      context: ./agentx-backend
+      dockerfile: Dockerfile
+    container_name: agentx-backend
+    ports:
+      - "3000:3000"
+    environment:
+      AGENTX_HOST: 0.0.0.0
+      AGENTX_PORT: 3000
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: agentx
+      POSTGRES_PASSWORD: agentx
+      POSTGRES_DB: agentx
+      AGENTX_CORS_ORIGINS: "http://localhost:5173,http://localhost:3001"
+      # API Keys from .env file
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./agentx-backend/config.json:/app/config.json:ro
+    networks:
+      - agentx-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # React Frontend
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: agentx-frontend
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_URL: http://localhost:3000/api/v1
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - agentx-network
+
+networks:
+  agentx-network:
+    driver: bridge
+
+volumes:
+  postgres_data:

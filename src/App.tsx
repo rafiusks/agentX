@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
-import { invoke } from '@tauri-apps/api/core'
 import { Chat } from './components/Chat/Chat'
-import { ModelSelector } from './components/ModelSelector/ModelSelector'
+import { ConnectionSelector } from './components/ConnectionSelector/ConnectionSelector'
 import { CommandPalette } from './components/CommandPalette/CommandPalette'
 import { TabBar } from './components/TabBar/TabBar'
 import { Settings } from './components/Settings/Settings'
@@ -12,25 +11,21 @@ import { ModeToggle } from './components/ModeToggle/ModeToggle'
 import { useChatStore } from './stores/chat.store'
 import { useUIStore } from './stores/ui.store'
 import { Command } from 'lucide-react'
-
-interface ProviderInfo {
-  id: string
-  name: string
-  enabled: boolean
-  status: string
-}
+import { api } from './services/api'
+// Verify correct API is imported
+console.log('API methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(api)))
 
 function App() {
   console.log('App component rendering...');
   
-  const [providers, setProviders] = useState<ProviderInfo[]>([])
+  const [connections, setConnections] = useState<any[]>([])
   const [currentTab, setCurrentTab] = useState<'chat' | 'agents' | 'mcp' | 'settings'>('chat')
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
   const [showWelcome, setShowWelcome] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
   // const [settingsOpen, setSettingsOpen] = useState(false)
   
-  const { currentProvider, setCurrentProvider, createSession } = useChatStore()
+  const { currentConnectionId, setCurrentConnectionId, createSession } = useChatStore()
   const { mode } = useUIStore()
 
   useEffect(() => {
@@ -40,8 +35,8 @@ function App() {
       setShowWelcome(true)
     }
     
-    // Load providers on startup
-    loadProviders()
+    // Load connections on startup
+    loadConnections()
 
     // Listen for keyboard shortcuts
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -100,27 +95,31 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [showHelp, commandPaletteOpen, createSession])
 
-  const loadProviders = async () => {
+  const loadConnections = async () => {
     try {
-      const result = await invoke<ProviderInfo[]>('get_providers')
-      setProviders(result)
+      console.log('Loading connections...');
+      const result = await api.listConnections()
+      console.log('Connections loaded:', result);
+      setConnections(result)
       
-      // Set default provider if none selected
-      if (!currentProvider && result.length > 0) {
-        const enabledProvider = result.find(p => p.enabled) || result[0]
-        setCurrentProvider(enabledProvider.id)
+      // Set default connection if none selected
+      if (!currentConnectionId && result.length > 0) {
+        const enabledConnection = result.find(c => c.enabled) || result[0]
+        if (enabledConnection) {
+          setCurrentConnectionId(enabledConnection.id)
+        }
       }
     } catch (error) {
-      console.error('Failed to load providers:', error)
+      console.error('Failed to load connections:', error)
     }
   }
 
-  console.log('App render - providers:', providers.length, 'currentProvider:', currentProvider);
+  console.log('App render - connections:', connections.length, 'currentConnectionId:', currentConnectionId);
   
   if (showWelcome) {
     return <Welcome onComplete={() => {
       setShowWelcome(false)
-      loadProviders() // Reload providers after setup
+      loadConnections() // Reload connections after setup
     }} />
   }
   
@@ -140,10 +139,9 @@ function App() {
           
           <div className="w-px h-6 bg-border-subtle" />
           
-          <ModelSelector 
-            providers={providers} 
-            currentProvider={currentProvider}
-            onProviderChange={setCurrentProvider}
+          <ConnectionSelector 
+            currentConnectionId={currentConnectionId}
+            onConnectionChange={setCurrentConnectionId}
           />
           
           {mode !== 'simple' && (
@@ -186,8 +184,8 @@ function App() {
         {currentTab === 'settings' && (
           <div className="overflow-auto h-full">
             <Settings 
-              providers={providers}
-              onProvidersUpdate={loadProviders}
+              providers={[]}
+              onProvidersUpdate={loadConnections}
             />
           </div>
         )}

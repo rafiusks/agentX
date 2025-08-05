@@ -1,0 +1,249 @@
+package services
+
+import (
+	"context"
+	"fmt"
+	"sort"
+	"strings"
+
+	"github.com/agentx/agentx-backend/internal/api/models"
+	"github.com/agentx/agentx-backend/internal/providers"
+)
+
+// RequestRouter intelligently routes requests to appropriate providers
+type RequestRouter struct {
+	providers      *providers.Registry
+	configService  *ConfigService
+	healthMonitor  *HealthMonitor
+}
+
+// GetHealthMonitor returns the health monitor
+func (r *RequestRouter) GetHealthMonitor() *HealthMonitor {
+	return r.healthMonitor
+}
+
+// NewRequestRouter creates a new request router
+func NewRequestRouter(providers *providers.Registry, configService *ConfigService) *RequestRouter {
+	return &RequestRouter{
+		providers:     providers,
+		configService: configService,
+		healthMonitor: NewHealthMonitor(providers),
+	}
+}
+
+// RouteRequest determines the best provider and model for a request
+func (r *RequestRouter) RouteRequest(ctx context.Context, req models.UnifiedChatRequest) (string, string, error) {
+	// 1. Analyze requirements from the request
+	requirements := r.analyzeRequirements(req)
+
+	// 2. Get available providers and their models
+	candidates := r.findCapableProviders(requirements)
+	if len(candidates) == 0 {
+		return "", "", fmt.Errorf("no providers available for requirements: %+v", requirements)
+	}
+
+	// 3. Apply user preferences
+	selected := r.applyPreferences(candidates, req.Preferences)
+
+	// 4. Check health status
+	if !r.healthMonitor.IsHealthy(selected.Provider) {
+		// Try to find a healthy alternative
+		for _, candidate := range candidates {
+			if r.healthMonitor.IsHealthy(candidate.Provider) {
+				selected = candidate
+				break
+			}
+		}
+	}
+
+	return selected.Provider, selected.Model, nil
+}
+
+// RoutingCandidate represents a potential provider/model combination
+type RoutingCandidate struct {
+	Provider     string
+	Model        string
+	Capabilities providers.ModelCapabilities
+	Score        float64
+}
+
+// analyzeRequirements extracts requirements from the request
+func (r *RequestRouter) analyzeRequirements(req models.UnifiedChatRequest) providers.Requirements {
+	requirements := req.Requirements
+
+	// Auto-detect requirements from request content
+	if len(req.Functions) > 0 || len(req.Tools) > 0 {
+		requirements.NeedsFunctions = true
+	}
+
+	if len(req.Images) > 0 {
+		requirements.NeedsVision = true
+	}
+
+	// Calculate minimum context size needed
+	contextSize := 0
+	for _, msg := range req.Messages {
+		contextSize += len(msg.Content) / 4 // Rough token estimate
+	}
+	if contextSize > requirements.MinContextSize {
+		requirements.MinContextSize = contextSize
+	}
+
+	// Set output format
+	if req.ResponseFormat != "" {
+		requirements.OutputFormat = req.ResponseFormat
+	}
+
+	return requirements
+}
+
+// findCapableProviders returns providers that can handle the requirements
+func (r *RequestRouter) findCapableProviders(requirements providers.Requirements) []RoutingCandidate {
+	var candidates []RoutingCandidate
+
+	allProviders := r.providers.GetAll()
+	for providerID, provider := range allProviders {
+		// Skip unhealthy providers
+		if !r.healthMonitor.IsHealthy(providerID) {
+			continue
+		}
+
+		// Check each model's capabilities
+		models, err := provider.GetModels(context.Background())
+		if err != nil {
+			continue
+		}
+
+		for _, model := range models {
+			modelCaps := providers.GetCapabilitiesForModel(model.ID)
+			if modelCaps.Capabilities.MeetsRequirements(requirements) {
+				candidates = append(candidates, RoutingCandidate{
+					Provider:     providerID,
+					Model:        model.ID,
+					Capabilities: *modelCaps,
+					Score:        0,
+				})
+			}
+		}
+	}
+
+	return candidates
+}
+
+// applyPreferences scores and selects based on user preferences
+func (r *RequestRouter) applyPreferences(candidates []RoutingCandidate, prefs models.Preferences) RoutingCandidate {
+	// Direct provider/model override
+	if prefs.Provider != "" && prefs.Model != "" {
+		for _, c := range candidates {
+			if c.Provider == prefs.Provider && c.Model == prefs.Model {
+				return c
+			}
+		}
+	}
+
+	// Score each candidate
+	for i := range candidates {
+		candidates[i].Score = r.scoreCandidate(candidates[i], prefs)
+	}
+
+	// Sort by score (highest first)
+	sort.Slice(candidates, func(i, j int) bool {
+		return candidates[i].Score > candidates[j].Score
+	})
+
+	return candidates[0]
+}
+
+// scoreCandidate calculates a score based on preferences
+func (r *RequestRouter) scoreCandidate(candidate RoutingCandidate, prefs models.Preferences) float64 {
+	score := 100.0
+
+	// Speed preference
+	switch prefs.Speed {
+	case "fast":
+		if strings.Contains(strings.ToLower(candidate.Model), "turbo") ||
+		   strings.Contains(strings.ToLower(candidate.Model), "haiku") {
+			score += 20
+		}
+	case "quality":
+		if strings.Contains(strings.ToLower(candidate.Model), "gpt-4") ||
+		   strings.Contains(strings.ToLower(candidate.Model), "opus") {
+			score += 20
+		}
+	}
+
+	// Cost preference
+	switch prefs.Cost {
+	case "economy":
+		if candidate.Capabilities.PricingTier == "economy" || 
+		   candidate.Capabilities.PricingTier == "free" {
+			score += 30
+		}
+	case "premium":
+		if candidate.Capabilities.PricingTier == "premium" {
+			score += 10
+		}
+	}
+
+	// Privacy preference
+	switch prefs.Privacy {
+	case "local":
+		if candidate.Provider == "ollama" || candidate.Provider == "lm-studio" {
+			score += 50
+		}
+	case "cloud":
+		if candidate.Provider == "openai" || candidate.Provider == "anthropic" {
+			score += 10
+		}
+	}
+
+	// Provider preference (partial match)
+	if prefs.Provider != "" && candidate.Provider == prefs.Provider {
+		score += 25
+	}
+
+	// Model preference (partial match)
+	if prefs.Model != "" && strings.Contains(candidate.Model, prefs.Model) {
+		score += 15
+	}
+
+	// Health status bonus
+	health := r.healthMonitor.GetHealth(candidate.Provider)
+	if health != nil {
+		score += float64(100 - health.ErrorRate*100) * 0.1 // Up to 10 points for reliability
+	}
+
+	return score
+}
+
+// GetRoutingMetadata returns metadata about the routing decision
+func (r *RequestRouter) GetRoutingMetadata(provider, model string, prefs models.Preferences) models.ResponseMetadata {
+	reason := "Selected based on "
+	reasons := []string{}
+
+	if prefs.Provider != "" && prefs.Model != "" {
+		reasons = append(reasons, "explicit selection")
+	} else {
+		if prefs.Speed != "" {
+			reasons = append(reasons, fmt.Sprintf("%s speed", prefs.Speed))
+		}
+		if prefs.Cost != "" {
+			reasons = append(reasons, fmt.Sprintf("%s cost", prefs.Cost))
+		}
+		if prefs.Privacy != "" {
+			reasons = append(reasons, fmt.Sprintf("%s privacy", prefs.Privacy))
+		}
+	}
+
+	if len(reasons) == 0 {
+		reason = "Default routing"
+	} else {
+		reason += strings.Join(reasons, ", ")
+	}
+
+	return models.ResponseMetadata{
+		Provider:      provider,
+		Model:         model,
+		RoutingReason: reason,
+	}
+}

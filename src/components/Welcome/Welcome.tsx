@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ChevronRight, Sparkles, Key, Cpu, Check } from 'lucide-react'
-import { invoke } from '@tauri-apps/api/core'
+import { api } from '../../services/api'
 
 interface WelcomeProps {
   onComplete: () => void
@@ -35,7 +35,7 @@ export function Welcome({ onComplete }: WelcomeProps) {
               <div className="w-2 h-2 rounded-full bg-accent-green mt-2" />
               <div>
                 <h4 className="font-medium text-foreground-primary">Lightning Fast</h4>
-                <p className="text-sm text-foreground-muted">Built with Rust for &lt;50ms startup time</p>
+                <p className="text-sm text-foreground-muted">Built with Go for fast performance</p>
               </div>
             </div>
             <div className="flex items-start gap-3">
@@ -55,100 +55,79 @@ export function Welcome({ onComplete }: WelcomeProps) {
       content: (
         <div className="space-y-6">
           <p className="text-foreground-secondary">
-            Add API keys for cloud providers (optional)
+            Add API keys for the providers you'd like to use. You can always add more later.
           </p>
-          
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-foreground-secondary mb-2">
+              <label className="block text-sm font-medium text-foreground-primary mb-2">
                 OpenAI API Key
               </label>
               <input
                 type="password"
                 value={apiKeys.openai}
-                onChange={(e) => setApiKeys(prev => ({ ...prev, openai: e.target.value }))}
+                onChange={(e) => setApiKeys({ ...apiKeys, openai: e.target.value })}
                 placeholder="sk-..."
-                className="w-full px-4 py-2 bg-background-tertiary rounded-lg
-                         border border-border-subtle focus:border-accent-blue/50
-                         focus:outline-none transition-colors
-                         placeholder:text-foreground-muted"
+                className="w-full px-4 py-2 bg-background-secondary rounded-lg border border-border-subtle focus:border-accent-primary focus:outline-none"
               />
-              <p className="text-xs text-foreground-muted mt-1">
-                Get your key from platform.openai.com
-              </p>
             </div>
-            
             <div>
-              <label className="block text-sm font-medium text-foreground-secondary mb-2">
+              <label className="block text-sm font-medium text-foreground-primary mb-2">
                 Anthropic API Key
               </label>
               <input
                 type="password"
                 value={apiKeys.anthropic}
-                onChange={(e) => setApiKeys(prev => ({ ...prev, anthropic: e.target.value }))}
+                onChange={(e) => setApiKeys({ ...apiKeys, anthropic: e.target.value })}
                 placeholder="sk-ant-..."
-                className="w-full px-4 py-2 bg-background-tertiary rounded-lg
-                         border border-border-subtle focus:border-accent-blue/50
-                         focus:outline-none transition-colors
-                         placeholder:text-foreground-muted"
+                className="w-full px-4 py-2 bg-background-secondary rounded-lg border border-border-subtle focus:border-accent-primary focus:outline-none"
               />
-              <p className="text-xs text-foreground-muted mt-1">
-                Get your key from console.anthropic.com
-              </p>
             </div>
-          </div>
-          
-          <div className="p-4 bg-background-tertiary rounded-lg border border-border-subtle">
-            <p className="text-sm text-foreground-secondary">
-              <strong>Note:</strong> You can skip this step and use Demo mode or Ollama for local models
+            <p className="text-sm text-foreground-muted">
+              Don't have API keys? You can use Demo mode or Ollama for local models.
             </p>
           </div>
         </div>
       )
     },
     {
-      title: 'Local Models',
+      title: 'Choose Your Mode',
       icon: Cpu,
       content: (
         <div className="space-y-6">
           <p className="text-foreground-secondary">
-            Run models locally with Ollama (optional)
+            AgentX adapts to your workflow with three progressive UI modes:
           </p>
-          
-          <div className="space-y-4">
-            <div className="p-4 bg-background-tertiary rounded-lg border border-border-subtle">
-              <h4 className="font-medium text-foreground-primary mb-2">Install Ollama</h4>
-              <p className="text-sm text-foreground-secondary mb-3">
-                Download from ollama.ai and run:
-              </p>
-              <code className="block p-3 bg-background-secondary rounded text-sm font-mono">
-                ollama pull llama2
-              </code>
-            </div>
-            
-            <div className="flex items-start gap-3">
-              <Check size={20} className="text-accent-green mt-0.5" />
-              <div>
-                <h4 className="font-medium text-foreground-primary">Privacy</h4>
-                <p className="text-sm text-foreground-muted">All processing happens locally</p>
-              </div>
-            </div>
-            
-            <div className="flex items-start gap-3">
-              <Check size={20} className="text-accent-green mt-0.5" />
-              <div>
-                <h4 className="font-medium text-foreground-primary">No API Keys</h4>
-                <p className="text-sm text-foreground-muted">Works without any configuration</p>
-              </div>
-            </div>
-            
-            <div className="flex items-start gap-3">
-              <Check size={20} className="text-accent-green mt-0.5" />
-              <div>
-                <h4 className="font-medium text-foreground-primary">Multiple Models</h4>
-                <p className="text-sm text-foreground-muted">Use Llama, Mistral, CodeLlama, and more</p>
-              </div>
-            </div>
+          <div className="space-y-3">
+            <button
+              onClick={() => {
+                localStorage.setItem('agentx-ui-mode', 'simple')
+                handleComplete()
+              }}
+              className="w-full p-4 bg-background-secondary rounded-lg border border-border-subtle hover:border-accent-primary transition-colors text-left"
+            >
+              <h4 className="font-medium text-foreground-primary">Simple Mode</h4>
+              <p className="text-sm text-foreground-muted mt-1">Clean chat interface, perfect for focused work</p>
+            </button>
+            <button
+              onClick={() => {
+                localStorage.setItem('agentx-ui-mode', 'terminal')
+                handleComplete()
+              }}
+              className="w-full p-4 bg-background-secondary rounded-lg border border-border-subtle hover:border-accent-primary transition-colors text-left"
+            >
+              <h4 className="font-medium text-foreground-primary">Terminal Mode</h4>
+              <p className="text-sm text-foreground-muted mt-1">Enhanced with command blocks and history</p>
+            </button>
+            <button
+              onClick={() => {
+                localStorage.setItem('agentx-ui-mode', 'pro')
+                handleComplete()
+              }}
+              className="w-full p-4 bg-background-secondary rounded-lg border border-border-subtle hover:border-accent-primary transition-colors text-left"
+            >
+              <h4 className="font-medium text-foreground-primary">Pro Mode</h4>
+              <p className="text-sm text-foreground-muted mt-1">Full IDE experience with agents and canvas</p>
+            </button>
           </div>
         </div>
       )
@@ -159,34 +138,26 @@ export function Welcome({ onComplete }: WelcomeProps) {
     if (currentStep === 1 && (apiKeys.openai || apiKeys.anthropic)) {
       setSaving(true)
       try {
+        // Save API keys
         if (apiKeys.openai) {
-          await invoke('update_api_key', { 
-            providerId: 'openai', 
-            apiKey: apiKeys.openai 
-          })
+          await api.updateProviderConfig('openai', { api_key: apiKeys.openai })
         }
         if (apiKeys.anthropic) {
-          await invoke('update_api_key', { 
-            providerId: 'anthropic', 
-            apiKey: apiKeys.anthropic 
-          })
+          await api.updateProviderConfig('anthropic', { api_key: apiKeys.anthropic })
         }
       } catch (error) {
         console.error('Failed to save API keys:', error)
+      } finally {
+        setSaving(false)
       }
-      setSaving(false)
     }
-
+    
     if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1)
-    } else {
-      // Save completion state
-      localStorage.setItem('agentx-welcome-completed', 'true')
-      onComplete()
     }
   }
 
-  const handleSkip = () => {
+  const handleComplete = () => {
     localStorage.setItem('agentx-welcome-completed', 'true')
     onComplete()
   }
@@ -195,91 +166,63 @@ export function Welcome({ onComplete }: WelcomeProps) {
   const Icon = currentStepData.icon
 
   return (
-    <div className="min-h-screen bg-background-primary flex items-center justify-center p-8">
+    <div className="fixed inset-0 bg-background-primary flex items-center justify-center p-8">
       <div className="max-w-2xl w-full">
         {/* Progress */}
-        <div className="flex items-center gap-3 mb-8">
+        <div className="flex gap-2 mb-8">
           {steps.map((_, index) => (
             <div
               key={index}
-              className={`flex-1 h-1 rounded-full transition-colors ${
-                index <= currentStep 
-                  ? 'bg-accent-blue' 
-                  : 'bg-background-tertiary'
+              className={`h-1 flex-1 rounded-full transition-colors ${
+                index <= currentStep ? 'bg-accent-primary' : 'bg-border-subtle'
               }`}
             />
           ))}
         </div>
 
         {/* Content */}
-        <div className="glass p-8 rounded-2xl border border-border-subtle">
+        <div className="bg-background-secondary rounded-xl p-8 shadow-xl border border-border-subtle">
           <div className="flex items-center gap-3 mb-6">
-            <div className="p-3 rounded-xl bg-accent-blue/10">
-              <Icon size={24} className="text-accent-blue" />
+            <div className="p-3 rounded-xl bg-accent-primary/10">
+              <Icon className="w-6 h-6 text-accent-primary" />
             </div>
             <h2 className="text-2xl font-semibold text-foreground-primary">
               {currentStepData.title}
             </h2>
           </div>
 
-          <div className="mb-8">
-            {currentStepData.content}
-          </div>
+          {currentStepData.content}
 
           {/* Actions */}
-          <div className="flex items-center justify-between">
+          <div className="flex justify-between mt-8">
             <button
-              onClick={handleSkip}
-              className="text-sm text-foreground-muted hover:text-foreground-secondary transition-colors"
+              onClick={() => setCurrentStep(Math.max(0, currentStep - 1))}
+              disabled={currentStep === 0}
+              className="px-4 py-2 text-foreground-secondary hover:text-foreground-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              Skip setup
+              Back
             </button>
 
-            <div className="flex items-center gap-3">
-              {currentStep > 0 && (
-                <button
-                  onClick={() => setCurrentStep(currentStep - 1)}
-                  className="px-4 py-2 text-foreground-secondary hover:text-foreground-primary transition-colors"
-                >
-                  Back
-                </button>
-              )}
-              
+            {currentStep < steps.length - 1 ? (
               <button
                 onClick={handleNext}
                 disabled={saving}
-                className="px-6 py-2 bg-accent-blue text-white rounded-lg
-                         hover:bg-accent-blue/90 transition-colors
-                         disabled:opacity-50 disabled:cursor-not-allowed
-                         flex items-center gap-2"
+                className="flex items-center gap-2 px-6 py-2 bg-accent-primary text-white rounded-lg hover:bg-accent-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {saving ? (
-                  <>Saving...</>
-                ) : currentStep === steps.length - 1 ? (
-                  <>Get Started</>
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Saving...
+                  </>
                 ) : (
                   <>
                     Next
-                    <ChevronRight size={16} />
+                    <ChevronRight className="w-4 h-4" />
                   </>
                 )}
               </button>
-            </div>
+            ) : null}
           </div>
-        </div>
-
-        {/* Step indicator */}
-        <div className="flex items-center justify-center gap-2 mt-6">
-          {steps.map((_, index) => (
-            <div
-              key={index}
-              className={`w-2 h-2 rounded-full transition-colors ${
-                index === currentStep 
-                  ? 'bg-accent-blue' 
-                  : 'bg-background-tertiary'
-              }`}
-            />
-          ))}
         </div>
       </div>
     </div>

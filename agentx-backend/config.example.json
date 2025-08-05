@@ -1,0 +1,46 @@
+{
+  "server": {
+    "host": "localhost",
+    "port": 3000
+  },
+  "database": {
+    "host": "localhost",
+    "port": 5432,
+    "user": "agentx",
+    "password": "",
+    "database": "agentx",
+    "sslmode": "disable"
+  },
+  "providers": {
+    "openai": {
+      "type": "openai",
+      "name": "OpenAI",
+      "api_key": "",
+      "models": ["gpt-4", "gpt-3.5-turbo"],
+      "default_model": "gpt-3.5-turbo"
+    },
+    "anthropic": {
+      "type": "anthropic",
+      "name": "Anthropic",
+      "api_key": "",
+      "models": ["claude-3-opus-20240229", "claude-3-sonnet-20240229", "claude-3-haiku-20240307"],
+      "default_model": "claude-3-sonnet-20240229"
+    },
+    "ollama": {
+      "type": "openai-compatible",
+      "name": "Ollama",
+      "base_url": "http://localhost:11434",
+      "models": [],
+      "default_model": ""
+    },
+    "lm-studio": {
+      "type": "openai-compatible",
+      "name": "LM Studio",
+      "base_url": "http://localhost:1234",
+      "models": [],
+      "default_model": ""
+    }
+  },
+  "default_provider": "openai",
+  "default_model": ""
+}

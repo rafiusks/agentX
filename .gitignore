@@ -169,6 +169,17 @@ claude_cache/
 !.env.example
 agentx-config.json
 
+# Backend specific
+agentx-backend/agentx-server
+agentx-backend/config.json
+agentx-backend/tmp/
+agentx-backend/*.log
+agentx-backend/vendor/
+
+# Docker volumes
+postgres_data/
+docker-compose.override.yml
+
 # Rust workspace
 /Cargo.lock
 # Uncomment if this is a binary crate:
