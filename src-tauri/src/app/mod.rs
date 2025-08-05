@@ -137,12 +137,20 @@ impl Application {
                     }
                 }
                 
-                // Try Ollama
-                if let Ok(p) = crate::providers::openai_compatible::OpenAICompatibleProvider::for_ollama() {
-                    // Check if Ollama is actually running
-                    if let Ok(()) = futures::executor::block_on(p.validate_config()) {
-                        println!("🔌 Using Ollama provider");
-                        return Arc::new(p) as Arc<dyn crate::providers::LLMProvider + Send + Sync>;
+                // Try local provider (Ollama, LM Studio, etc.)
+                if let Some(local_config) = config.providers.get("local").or_else(|| config.providers.get("ollama")) {
+                    let prov_config = crate::providers::ProviderConfig {
+                        api_key: None,
+                        base_url: Some(local_config.base_url.clone()),
+                        timeout_secs: Some(300),
+                        max_retries: Some(3),
+                    };
+                    if let Ok(p) = crate::providers::openai_compatible::OpenAICompatibleProvider::new(prov_config) {
+                        // Check if provider is actually running
+                        if let Ok(()) = futures::executor::block_on(p.validate_config()) {
+                            println!("🔌 Using local OpenAI-compatible provider");
+                            return Arc::new(p) as Arc<dyn crate::providers::LLMProvider + Send + Sync>;
+                        }
                     }
                 }
                 
@@ -433,9 +441,10 @@ impl Application {
         
         // Load configuration status
         let config = AgentXConfig::load().unwrap_or_default();
-        let provider_status = match crate::providers::openai_compatible::OpenAICompatibleProvider::for_ollama() {
-            Ok(_) => "✅ Ollama provider available",
-            Err(_) => "⚠️  No LLM provider configured",
+        let provider_status = if config.providers.contains_key("local") || config.providers.contains_key("ollama") {
+            "✅ Local provider configured"
+        } else {
+            "⚠️  No LLM provider configured"
         };
         
         println!("📊 System Status:");

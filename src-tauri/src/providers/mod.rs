@@ -9,7 +9,6 @@ pub mod anthropic;
 pub mod openai_compatible;
 pub mod mcp_enhanced;
 pub mod demo;
-pub mod ollama_models;
 pub mod deepseek_parser;
 
 /// Represents a message in a conversation

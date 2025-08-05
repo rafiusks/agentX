@@ -25,39 +25,55 @@ impl Orchestrator {
     }
     
     fn register_default_agents(&mut self) {
-        // Try to set up LLM agents first
-        if let Ok(provider) = OpenAICompatibleProvider::for_ollama() {
-            let provider = Arc::new(provider);
-            let model = "llama2".to_string(); // Default model, should be configurable
-            
-            // Register LLM-powered agents
-            let architect = Arc::new(Mutex::new(
-                Box::new(LLMAgent::architect(provider.clone(), model.clone())) as Box<dyn Agent>
-            ));
-            let builder = Arc::new(Mutex::new(
-                Box::new(LLMAgent::builder(provider.clone(), model.clone())) as Box<dyn Agent>
-            ));
-            let tester = Arc::new(Mutex::new(
-                Box::new(LLMAgent::tester(provider.clone(), model.clone())) as Box<dyn Agent>
-            ));
-            
-            self.agents.insert("architect".to_string(), architect);
-            self.agents.insert("builder".to_string(), builder);
-            self.agents.insert("tester".to_string(), tester);
-            
-            tracing::info!("Registered LLM-powered agents");
-        } else {
-            // Fall back to mock agents if no LLM available
-            let architect = Arc::new(Mutex::new(Box::new(MockArchitectAgent::new()) as Box<dyn Agent>));
-            let builder = Arc::new(Mutex::new(Box::new(MockBuilderAgent::new()) as Box<dyn Agent>));
-            let tester = Arc::new(Mutex::new(Box::new(MockTesterAgent::new()) as Box<dyn Agent>));
-            
-            self.agents.insert("architect".to_string(), architect);
-            self.agents.insert("builder".to_string(), builder);
-            self.agents.insert("tester".to_string(), tester);
-            
-            tracing::info!("Registered mock agents (no LLM provider available)");
+        // Try to set up LLM agents first - load actual configuration
+        if let Ok(config) = crate::config::AgentXConfig::load() {
+            // Try to get the local provider config
+            if let Some(local_config) = config.providers.get("local").or_else(|| config.providers.get("ollama")) {
+                let provider_config = crate::providers::ProviderConfig {
+                    api_key: local_config.api_key.clone(),
+                    base_url: Some(local_config.base_url.clone()),
+                    timeout_secs: Some(300),
+                    max_retries: Some(3),
+                };
+                
+                if let Ok(provider) = OpenAICompatibleProvider::new(provider_config) {
+                    let provider: Arc<dyn crate::providers::LLMProvider + Send + Sync> = Arc::new(provider);
+                    // Use the configured default model or first available model
+                    let model = local_config.models.first()
+                        .map(|m| m.name.clone())
+                        .unwrap_or_else(|| config.default_model.clone());
+                    
+                    // Register LLM-powered agents
+                    let architect = Arc::new(Mutex::new(
+                        Box::new(LLMAgent::architect(provider.clone(), model.clone())) as Box<dyn Agent>
+                    ));
+                    let builder = Arc::new(Mutex::new(
+                        Box::new(LLMAgent::builder(provider.clone(), model.clone())) as Box<dyn Agent>
+                    ));
+                    let tester = Arc::new(Mutex::new(
+                        Box::new(LLMAgent::tester(provider.clone(), model.clone())) as Box<dyn Agent>
+                    ));
+                    
+                    self.agents.insert("architect".to_string(), architect);
+                    self.agents.insert("builder".to_string(), builder);
+                    self.agents.insert("tester".to_string(), tester);
+                    
+                    tracing::info!("Registered LLM-powered agents with model: {}", model);
+                    return;
+                }
+            }
         }
+        
+        // Fall back to mock agents if no LLM available
+        let architect = Arc::new(Mutex::new(Box::new(MockArchitectAgent::new()) as Box<dyn Agent>));
+        let builder = Arc::new(Mutex::new(Box::new(MockBuilderAgent::new()) as Box<dyn Agent>));
+        let tester = Arc::new(Mutex::new(Box::new(MockTesterAgent::new()) as Box<dyn Agent>));
+        
+        self.agents.insert("architect".to_string(), architect);
+        self.agents.insert("builder".to_string(), builder);
+        self.agents.insert("tester".to_string(), tester);
+        
+        tracing::info!("Registered mock agents (no LLM provider available)");
     }
     
     pub async fn process_request(&mut self, request: &str) -> Result<String> {

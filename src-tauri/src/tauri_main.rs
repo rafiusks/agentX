@@ -40,8 +40,8 @@ async fn get_providers(state: State<'_, AppState>) -> Result<Vec<ProviderInfo>, 
             status: "Ready".to_string(),
         },
         ProviderInfo {
-            id: "ollama".to_string(),
-            name: "Ollama".to_string(),
+            id: "local".to_string(),
+            name: "Local Models".to_string(),
             enabled: true,
             status: "Ready".to_string(),
         },
@@ -64,7 +64,7 @@ async fn send_message(
 ) -> Result<String, String> {
     // Create provider based on provider_id
     let config = state.config.lock().await;
-    let provider = create_provider(&config, provider_id).await
+    let provider = create_provider(&config, provider_id.clone()).await
         .map_err(|e| format!("Failed to create provider: {}", e))?;
     
     // Create completion request
@@ -81,9 +81,20 @@ async fn send_message(
         },
     ];
     
+    // Use model from configuration
+    let model = match provider_id.as_deref() {
+        Some(pid) => {
+            config.get_provider(pid)
+                .and_then(|p| p.models.first())
+                .map(|m| m.name.clone())
+                .unwrap_or_else(|| config.default_model.clone())
+        }
+        None => config.default_model.clone(),
+    };
+    
     let request = CompletionRequest {
         messages,
-        model: "gpt-3.5-turbo".to_string(), // Will be overridden by provider
+        model,
         temperature: Some(0.7),
         max_tokens: Some(1000),
         stream: false,
@@ -142,12 +153,16 @@ async fn stream_message(
 
     let has_functions = functions.is_some();
     
-    // Use appropriate model based on provider
+    // Use model from configuration or default model
     let model = match provider_id.as_deref() {
-        Some("ollama") => "deepseek/deepseek-r1-0528-qwen3-8b".to_string(), // Available model
-        Some("openai") => "gpt-3.5-turbo".to_string(),
-        Some("anthropic") => "claude-3-sonnet-20240229".to_string(),
-        _ => "gpt-3.5-turbo".to_string(),
+        Some(pid) => {
+            // Use the configured default model for this provider
+            config.get_provider(pid)
+                .and_then(|p| p.models.first())
+                .map(|m| m.name.clone())
+                .unwrap_or_else(|| config.default_model.clone())
+        }
+        None => config.default_model.clone(),
     };
     
     let request = CompletionRequest {
@@ -261,6 +276,141 @@ async fn update_api_key(
     }
 }
 
+#[tauri::command]
+async fn update_provider_settings(
+    state: State<'_, AppState>,
+    provider_id: String,
+    base_url: Option<String>,
+    default_model: Option<String>,
+) -> Result<(), String> {
+    let mut config = state.config.lock().await;
+    
+    // Update provider base URL if provided
+    if let Some(url) = base_url {
+        if let Some(provider_config) = config.providers.get_mut(&provider_id) {
+            provider_config.base_url = url;
+        } else {
+            return Err(format!("Provider {} not found", provider_id));
+        }
+    }
+    
+    // Update default model if provided
+    if let Some(model) = default_model {
+        // Check if this provider is the default provider
+        if config.default_provider == provider_id {
+            config.default_model = model;
+        }
+    }
+    
+    config.save()
+        .map_err(|e| format!("Failed to save config: {}", e))?;
+    
+    // Clear current provider to force recreation
+    let mut provider_lock = state.provider.lock().await;
+    *provider_lock = None;
+    
+    Ok(())
+}
+
+#[tauri::command]
+async fn get_provider_settings(
+    state: State<'_, AppState>,
+    provider_id: String,
+) -> Result<serde_json::Value, String> {
+    let config = state.config.lock().await;
+    
+    if let Some(provider_config) = config.providers.get(&provider_id) {
+        Ok(serde_json::json!({
+            "base_url": provider_config.base_url,
+            "models": provider_config.models,
+            "default_model": if config.default_provider == provider_id { 
+                Some(&config.default_model) 
+            } else { 
+                None 
+            }
+        }))
+    } else {
+        Err(format!("Provider {} not found", provider_id))
+    }
+}
+
+#[tauri::command]
+async fn discover_models(
+    state: State<'_, AppState>,
+    provider_id: String,
+    base_url: Option<String>,
+) -> Result<Vec<serde_json::Value>, String> {
+    let config = state.config.lock().await;
+    
+    // Get the provider config
+    let provider_config = match config.providers.get(&provider_id) {
+        Some(config) => config,
+        None => return Err(format!("Provider {} not found", provider_id)),
+    };
+    
+    // Use provided base_url or fall back to configured one
+    let url = base_url.as_ref().unwrap_or(&provider_config.base_url);
+    
+    // Only discover models for OpenAI-compatible providers
+    match provider_config.provider_type {
+        crate::config::ProviderType::OpenAICompatible => {
+            // Create a temporary provider config for discovery
+            let temp_config = crate::providers::ProviderConfig {
+                api_key: None,
+                base_url: Some(url.clone()),
+                timeout_secs: Some(10),
+                max_retries: Some(1),
+            };
+            
+            // Create provider and discover models
+            match crate::providers::openai_compatible::OpenAICompatibleProvider::new(temp_config) {
+                Ok(provider) => {
+                    // Call the /v1/models endpoint
+                    let client = reqwest::Client::builder()
+                        .timeout(std::time::Duration::from_secs(10))
+                        .build()
+                        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
+                    
+                    let models_url = format!("{}/v1/models", url);
+                    
+                    match client.get(&models_url).send().await {
+                        Ok(response) => {
+                            if response.status().is_success() {
+                                let models_response: serde_json::Value = response.json().await
+                                    .map_err(|e| format!("Failed to parse models response: {}", e))?;
+                                
+                                // Extract model information
+                                let models = models_response["data"]
+                                    .as_array()
+                                    .unwrap_or(&vec![])
+                                    .iter()
+                                    .map(|model| {
+                                        serde_json::json!({
+                                            "id": model["id"].as_str().unwrap_or("unknown"),
+                                            "name": model["id"].as_str().unwrap_or("unknown"),
+                                            "display_name": model["id"].as_str().unwrap_or("unknown"),
+                                            "context_size": 4096, // Default, can be overridden if available
+                                            "supports_streaming": true,
+                                            "description": format!("Model: {}", model["id"].as_str().unwrap_or("unknown"))
+                                        })
+                                    })
+                                    .collect();
+                                
+                                Ok(models)
+                            } else {
+                                Err(format!("Failed to fetch models: HTTP {}", response.status()))
+                            }
+                        }
+                        Err(e) => Err(format!("Failed to connect to {}: {}", models_url, e))
+                    }
+                }
+                Err(e) => Err(format!("Failed to create provider: {}", e))
+            }
+        }
+        _ => Err("Model discovery is only available for OpenAI-compatible providers".to_string())
+    }
+}
+
 async fn create_provider(
     config: &AgentXConfig,
     provider_id: Option<String>,
@@ -298,10 +448,20 @@ async fn create_provider(
                 }
             }
         }
-        "ollama" => {
-            return OpenAICompatibleProvider::for_ollama()
-                .map(|p| Arc::new(p) as Arc<dyn LLMProvider + Send + Sync>)
-                .map_err(|e| e.to_string());
+        "local" | "ollama" => {
+            // Support both "local" and "ollama" for backward compatibility
+            let provider_key = if config.providers.contains_key("local") { "local" } else { "ollama" };
+            if let Some(provider_config) = config.providers.get(provider_key) {
+                let prov_config = ProviderConfig {
+                    api_key: None, // Local models don't need API keys
+                    base_url: Some(provider_config.base_url.clone()),
+                    timeout_secs: Some(300), // Longer timeout for local models
+                    max_retries: Some(3),
+                };
+                return OpenAICompatibleProvider::new(prov_config)
+                    .map(|p| Arc::new(p) as Arc<dyn LLMProvider + Send + Sync>)
+                    .map_err(|e| e.to_string());
+            }
         }
         _ => {}
     }
@@ -411,6 +571,9 @@ pub fn run() {
             send_message,
             stream_message,
             update_api_key,
+            update_provider_settings,
+            get_provider_settings,
+            discover_models,
             add_mcp_server,
             remove_mcp_server,
             list_mcp_tools,

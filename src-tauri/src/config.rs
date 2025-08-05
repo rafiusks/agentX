@@ -30,7 +30,6 @@ pub enum ProviderType {
     OpenAICompatible,
     OpenAI,
     Anthropic,
-    Ollama,
     MCP,
 }
 
@@ -90,35 +89,13 @@ impl Default for AgentXConfig {
     fn default() -> Self {
         let mut providers = HashMap::new();
         
-        // Default Ollama configuration
-        providers.insert("ollama".to_string(), ProviderConfig {
-            name: "Ollama".to_string(),
-            provider_type: ProviderType::Ollama,
+        // Default local OpenAI-compatible configuration (e.g., Ollama, LM Studio, etc.)
+        providers.insert("local".to_string(), ProviderConfig {
+            name: "Local Models (OpenAI Compatible)".to_string(),
+            provider_type: ProviderType::OpenAICompatible,
             base_url: "http://localhost:11434".to_string(),
             api_key: None,
-            models: vec![
-                ModelConfig {
-                    name: "llama2".to_string(),
-                    display_name: "Llama 2 7B".to_string(),
-                    context_size: 4096,
-                    supports_streaming: true,
-                    description: Some("Meta's Llama 2 7B model - good for general tasks".to_string()),
-                },
-                ModelConfig {
-                    name: "codellama".to_string(),
-                    display_name: "Code Llama 7B".to_string(),
-                    context_size: 4096,
-                    supports_streaming: true,
-                    description: Some("Code-focused Llama model for programming tasks".to_string()),
-                },
-                ModelConfig {
-                    name: "mistral".to_string(),
-                    display_name: "Mistral 7B".to_string(),
-                    context_size: 8192,
-                    supports_streaming: true,
-                    description: Some("Efficient and fast 7B parameter model".to_string()),
-                },
-            ],
+            models: vec![], // Models will be discovered dynamically from the API
         });
         
         // Default OpenAI configuration (disabled by default)
@@ -146,8 +123,8 @@ impl Default for AgentXConfig {
         });
         
         Self {
-            default_provider: "ollama".to_string(),
-            default_model: "llama2".to_string(),
+            default_provider: "local".to_string(),
+            default_model: String::new(), // Will be set after model discovery
             providers,
             ui: UIConfig {
                 show_model_selector: true,
@@ -281,7 +258,7 @@ impl AgentXConfig {
     
     async fn check_provider_availability(&self, provider_config: &ProviderConfig) -> Result<Vec<String>> {
         match provider_config.provider_type {
-            ProviderType::Ollama | ProviderType::OpenAICompatible => {
+            ProviderType::OpenAICompatible => {
                 self.check_openai_compatible_availability(provider_config).await
             }
             ProviderType::OpenAI => {

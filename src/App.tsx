@@ -159,7 +159,7 @@ function App() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-hidden">
+      <main className="flex-1 overflow-auto">
         {currentTab === 'chat' && (
           <Chat />
         )}
@@ -178,16 +178,18 @@ function App() {
         )}
 
         {currentTab === 'mcp' && (
-          <div className="p-6 overflow-auto">
+          <div className="p-6">
             <MCPServers />
           </div>
         )}
         
         {currentTab === 'settings' && (
-          <Settings 
-            providers={providers}
-            onProvidersUpdate={loadProviders}
-          />
+          <div className="overflow-auto h-full">
+            <Settings 
+              providers={providers}
+              onProvidersUpdate={loadProviders}
+            />
+          </div>
         )}
       </main>
 

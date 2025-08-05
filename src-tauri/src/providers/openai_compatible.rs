@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use std::sync::{Arc, Mutex};
 
-/// OpenAI-compatible provider for local models (Ollama, LM Studio, llama.cpp, etc.)
+/// OpenAI-compatible provider for local models using the standard OpenAI API
 pub struct OpenAICompatibleProvider {
     config: ProviderConfig,
     client: reqwest::Client,
@@ -23,35 +23,6 @@ impl OpenAICompatibleProvider {
         Ok(Self { config, client })
     }
     
-    pub fn for_ollama() -> Result<Self> {
-        let config = ProviderConfig {
-            api_key: None, // Ollama doesn't need API keys
-            base_url: Some("http://localhost:11434".to_string()),
-            timeout_secs: Some(300),
-            max_retries: Some(3),
-        };
-        Self::new(config)
-    }
-    
-    pub fn for_lm_studio() -> Result<Self> {
-        let config = ProviderConfig {
-            api_key: None, // LM Studio doesn't need API keys
-            base_url: Some("http://localhost:1234".to_string()),
-            timeout_secs: Some(300),
-            max_retries: Some(3),
-        };
-        Self::new(config)
-    }
-    
-    pub fn for_llamacpp() -> Result<Self> {
-        let config = ProviderConfig {
-            api_key: None, // llama.cpp server doesn't need API keys
-            base_url: Some("http://localhost:8080".to_string()),
-            timeout_secs: Some(300),
-            max_retries: Some(3),
-        };
-        Self::new(config)
-    }
     
     async fn list_models(&self) -> Result<Vec<String>> {
         let base_url = self.get_base_url();
@@ -72,7 +43,8 @@ impl OpenAICompatibleProvider {
     }
     
     fn get_base_url(&self) -> &str {
-        self.config.base_url.as_deref().unwrap_or("http://localhost:11434")
+        self.config.base_url.as_deref()
+            .expect("OpenAI-compatible provider requires base_url to be configured")
     }
 }
 
@@ -283,16 +255,8 @@ impl LLMProvider for OpenAICompatibleProvider {
             }
         };
         
-        // Check if we're running Ollama and if the models support functions
-        let supports_functions = if self.get_base_url().contains("11434") {
-            // This is likely Ollama, check model capabilities
-            models.iter().any(|model| {
-                super::ollama_models::model_supports_functions(&model.id)
-            })
-        } else {
-            // For other OpenAI-compatible servers, assume they support functions
-            true
-        };
+        // Most OpenAI-compatible servers support functions
+        let supports_functions = true;
         
         Ok(ProviderCapabilities {
             models,
@@ -468,15 +432,8 @@ impl LLMProvider for OpenAICompatibleProvider {
         println!("[OpenAI-Compatible] Sending streaming request to {}", url);
         println!("[OpenAI-Compatible] Model: {}", api_request.model);
         
-        // Check if model supports functions
-        let model_supports_functions = super::ollama_models::model_supports_functions(&api_request.model);
-        
         if let Some(ref funcs) = api_request.functions {
             println!("[OpenAI-Compatible] Functions: {} functions included", funcs.len());
-            if !model_supports_functions && self.get_base_url().contains("11434") {
-                println!("[OpenAI-Compatible] ⚠️  WARNING: Model '{}' does not support function calling!", api_request.model);
-                println!("[OpenAI-Compatible] ⚠️  Try: ollama pull mistral (or llama3.1, mixtral, qwen2.5)");
-            }
             for func in funcs {
                 println!("[OpenAI-Compatible]   - {}: {}", func.name, func.description);
             }
