@@ -26,6 +26,7 @@ const providerLabels: Record<string, string> = {
   anthropic: 'Anthropic',
   ollama: 'Ollama',
   'lm-studio': 'LM Studio',
+  'openai-compatible': 'OpenAI Compatible',
 };
 
 export const AddConnectionModal: React.FC<AddConnectionModalProps> = ({
@@ -67,7 +68,7 @@ export const AddConnectionModal: React.FC<AddConnectionModalProps> = ({
       return;
     }
 
-    if (providerId !== 'ollama' && providerId !== 'lm-studio' && !apiKey.trim()) {
+    if (providerId !== 'ollama' && providerId !== 'lm-studio' && providerId !== 'openai-compatible' && !apiKey.trim()) {
       toast({
         title: 'Error',
         description: 'Please enter an API key',
@@ -88,8 +89,15 @@ export const AddConnectionModal: React.FC<AddConnectionModalProps> = ({
         config.base_url = baseUrl;
       }
 
+      // Map frontend provider IDs to backend types
+      let backendProviderId = providerId;
+      if (providerId === 'lm-studio') {
+        backendProviderId = 'openai-compatible';
+      }
+      // openai-compatible is already the correct backend type
+
       const connection = await api.createConnection({
-        provider_id: providerId,
+        provider_id: backendProviderId,
         name: name.trim(),
         config,
       });
@@ -153,6 +161,12 @@ export const AddConnectionModal: React.FC<AddConnectionModalProps> = ({
                     <span>LM Studio (Local)</span>
                   </div>
                 </SelectItem>
+                <SelectItem value="openai-compatible">
+                  <div className="flex items-center gap-2">
+                    <span>🔧</span>
+                    <span>OpenAI Compatible</span>
+                  </div>
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -170,7 +184,7 @@ export const AddConnectionModal: React.FC<AddConnectionModalProps> = ({
             </p>
           </div>
 
-          {providerId !== 'ollama' && providerId !== 'lm-studio' && (
+          {providerId !== 'ollama' && providerId !== 'lm-studio' && providerId !== 'openai-compatible' && (
             <div>
               <Label htmlFor="api-key">API Key</Label>
               <Input
@@ -209,7 +223,7 @@ export const AddConnectionModal: React.FC<AddConnectionModalProps> = ({
             </div>
           )}
 
-          {(providerId === 'ollama' || providerId === 'lm-studio') && (
+          {(providerId === 'ollama' || providerId === 'lm-studio' || providerId === 'openai-compatible') && (
             <div>
               <Label htmlFor="base-url">Base URL</Label>
               <Input

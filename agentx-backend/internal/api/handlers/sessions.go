@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"github.com/gofiber/fiber/v2"
+	"github.com/agentx/agentx-backend/internal/api/middleware"
 	"github.com/agentx/agentx-backend/internal/repository"
 	"github.com/agentx/agentx-backend/internal/services"
 )
@@ -9,6 +10,13 @@ import (
 // CreateSession creates a new chat session
 func CreateSession(svc *services.Services) fiber.Handler {
 	return func(c *fiber.Ctx) error {
+		userContext := middleware.GetUserContext(c)
+		if userContext == nil {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+				"error": "Not authenticated",
+			})
+		}
+		
 		var req struct {
 			Title string `json:"title"`
 		}
@@ -23,7 +31,7 @@ func CreateSession(svc *services.Services) fiber.Handler {
 			req.Title = "New Chat"
 		}
 		
-		session, err := svc.Chat.CreateSession(c.UserContext(), req.Title)
+		session, err := svc.Chat.CreateSession(c.UserContext(), userContext.UserID, req.Title)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": err.Error(),
@@ -37,7 +45,14 @@ func CreateSession(svc *services.Services) fiber.Handler {
 // GetSessions returns all sessions
 func GetSessions(svc *services.Services) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		sessions, err := svc.Chat.GetSessions(c.UserContext())
+		userContext := middleware.GetUserContext(c)
+		if userContext == nil {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+				"error": "Not authenticated",
+			})
+		}
+		
+		sessions, err := svc.Chat.GetSessions(c.UserContext(), userContext.UserID)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": err.Error(),
@@ -53,9 +68,16 @@ func GetSessions(svc *services.Services) fiber.Handler {
 // GetSession returns a specific session
 func GetSession(svc *services.Services) fiber.Handler {
 	return func(c *fiber.Ctx) error {
+		userContext := middleware.GetUserContext(c)
+		if userContext == nil {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+				"error": "Not authenticated",
+			})
+		}
+		
 		sessionID := c.Params("id")
 		
-		session, err := svc.Chat.GetSession(c.UserContext(), sessionID)
+		session, err := svc.Chat.GetSession(c.UserContext(), userContext.UserID, sessionID)
 		if err != nil {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 				"error": "Session not found",
@@ -69,9 +91,16 @@ func GetSession(svc *services.Services) fiber.Handler {
 // DeleteSession deletes a session
 func DeleteSession(svc *services.Services) fiber.Handler {
 	return func(c *fiber.Ctx) error {
+		userContext := middleware.GetUserContext(c)
+		if userContext == nil {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+				"error": "Not authenticated",
+			})
+		}
+		
 		sessionID := c.Params("id")
 		
-		err := svc.Chat.DeleteSession(c.UserContext(), sessionID)
+		err := svc.Chat.DeleteSession(c.UserContext(), userContext.UserID, sessionID)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": err.Error(),
@@ -148,7 +177,14 @@ func SendMessage(svc *services.Services) fiber.Handler {
 		providerMessages = append(providerMessages, userMsg)
 		
 		// Send to provider (using legacy method)
-		response, err := svc.Chat.SendToProvider(c.UserContext(), sessionID, providerMessages, req.Provider, req.Model)
+		// Extract userID from context
+		userContext := middleware.GetUserContext(c)
+		if userContext == nil {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+				"error": "Not authenticated",
+			})
+		}
+		response, err := svc.Chat.SendToProvider(c.UserContext(), userContext.UserID, sessionID, providerMessages, req.Provider, req.Model)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": err.Error(),

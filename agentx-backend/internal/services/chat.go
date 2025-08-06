@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/agentx/agentx-backend/internal/providers"
 	"github.com/agentx/agentx-backend/internal/repository"
 )
@@ -26,12 +27,12 @@ func NewChatService(providers *providers.Registry, sessionRepo repository.Sessio
 }
 
 // CreateSession creates a new chat session
-func (s *ChatService) CreateSession(ctx context.Context, title string) (*repository.Session, error) {
+func (s *ChatService) CreateSession(ctx context.Context, userID uuid.UUID, title string) (*repository.Session, error) {
 	session := repository.Session{
 		Title: title,
 	}
 	
-	sessionID, err := s.sessionRepo.Create(ctx, session)
+	sessionID, err := s.sessionRepo.Create(ctx, userID, session)
 	if err != nil {
 		return nil, err
 	}
@@ -41,18 +42,18 @@ func (s *ChatService) CreateSession(ctx context.Context, title string) (*reposit
 }
 
 // GetSession retrieves a session by ID
-func (s *ChatService) GetSession(ctx context.Context, id string) (*repository.Session, error) {
-	return s.sessionRepo.Get(ctx, id)
+func (s *ChatService) GetSession(ctx context.Context, userID uuid.UUID, id string) (*repository.Session, error) {
+	return s.sessionRepo.Get(ctx, userID, id)
 }
 
 // GetSessions returns all sessions
-func (s *ChatService) GetSessions(ctx context.Context) ([]*repository.Session, error) {
-	return s.sessionRepo.List(ctx)
+func (s *ChatService) GetSessions(ctx context.Context, userID uuid.UUID) ([]*repository.Session, error) {
+	return s.sessionRepo.List(ctx, userID)
 }
 
 // DeleteSession deletes a session
-func (s *ChatService) DeleteSession(ctx context.Context, id string) error {
-	return s.sessionRepo.Delete(ctx, id)
+func (s *ChatService) DeleteSession(ctx context.Context, userID uuid.UUID, id string) error {
+	return s.sessionRepo.Delete(ctx, userID, id)
 }
 
 // GetSessionMessages returns messages for a session
@@ -66,11 +67,12 @@ func (s *ChatService) SaveMessage(ctx context.Context, message repository.Messag
 }
 
 // SendToProvider sends messages to a provider and returns the response
-func (s *ChatService) SendToProvider(ctx context.Context, sessionID string, messages []repository.Message, providerID, model string) (*providers.CompletionResponse, error) {
-	// Get provider
-	provider := s.providers.Get(providerID)
+func (s *ChatService) SendToProvider(ctx context.Context, userID uuid.UUID, sessionID string, messages []repository.Message, connectionID, model string) (*providers.CompletionResponse, error) {
+	// Get provider (now user-scoped with connection ID)
+	registryKey := fmt.Sprintf("%s:%s", userID.String(), connectionID)
+	provider := s.providers.Get(registryKey)
 	if provider == nil {
-		return nil, fmt.Errorf("provider not found: %s", providerID)
+		return nil, fmt.Errorf("provider connection not found: %s for user %s", connectionID, userID.String())
 	}
 	
 	// Convert repository messages to provider messages
@@ -103,7 +105,7 @@ func (s *ChatService) SendToProvider(ctx context.Context, sessionID string, mess
 }
 
 // StreamResponse handles streaming chat responses
-func (s *ChatService) StreamResponse(ctx context.Context, sessionID string, message string, providerID, model string) (<-chan providers.StreamChunk, error) {
+func (s *ChatService) StreamResponse(ctx context.Context, userID uuid.UUID, sessionID string, message string, providerID, model string) (<-chan providers.StreamChunk, error) {
 	// Get session messages
 	messages, err := s.GetSessionMessages(ctx, sessionID)
 	if err != nil {
@@ -121,10 +123,11 @@ func (s *ChatService) StreamResponse(ctx context.Context, sessionID string, mess
 		return nil, err
 	}
 	
-	// Get provider
-	provider := s.providers.Get(providerID)
+	// Get provider (now user-scoped)
+	registryKey := fmt.Sprintf("%s:%s", userID.String(), providerID)
+	provider := s.providers.Get(registryKey)
 	if provider == nil {
-		return nil, fmt.Errorf("provider not found: %s", providerID)
+		return nil, fmt.Errorf("provider not found: %s for user %s", providerID, userID.String())
 	}
 	
 	// Convert messages to provider format
@@ -180,7 +183,7 @@ func (s *ChatService) StreamResponse(ctx context.Context, sessionID string, mess
 				s.SaveMessage(context.Background(), assistantMsg)
 				
 				// Update session with provider info
-				s.sessionRepo.Update(ctx, sessionID, map[string]interface{}{
+				s.sessionRepo.Update(ctx, userID, sessionID, map[string]interface{}{
 					"provider": providerID,
 					"model":    model,
 				})

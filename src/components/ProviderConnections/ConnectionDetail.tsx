@@ -196,6 +196,19 @@ export const ConnectionDetail: React.FC<ConnectionDetailProps> = ({
     anthropic: 'Anthropic',
     ollama: 'Ollama',
     'lm-studio': 'LM Studio',
+    'openai-compatible': 'OpenAI Compatible',
+  };
+
+  // Determine display provider based on connection details
+  const getDisplayProvider = () => {
+    if (connection.provider_id === 'openai-compatible') {
+      // Check if this is actually an LM Studio connection based on the URL
+      if (connection.config?.base_url?.includes('localhost:1234')) {
+        return 'LM Studio';
+      }
+      return 'OpenAI Compatible';
+    }
+    return providerLabels[connection.provider_id] || connection.provider_id;
   };
 
   return (
@@ -206,7 +219,7 @@ export const ConnectionDetail: React.FC<ConnectionDetailProps> = ({
             <div>
               <CardTitle className="text-foreground-primary">{connection.name}</CardTitle>
               <CardDescription className="text-foreground-secondary">
-                {providerLabels[connection.provider_id]} Connection
+                {getDisplayProvider()} Connection
               </CardDescription>
             </div>
             <div className="flex items-center space-x-2">
@@ -258,7 +271,7 @@ export const ConnectionDetail: React.FC<ConnectionDetailProps> = ({
           )}
 
           {/* Base URL for compatible providers */}
-          {(connection.provider_id === 'ollama' || connection.provider_id === 'lm-studio') && (
+          {(connection.provider_id === 'ollama' || connection.provider_id === 'lm-studio' || connection.provider_id === 'openai-compatible') && (
             <div>
               <Label htmlFor="base-url" className="text-foreground-primary">Base URL</Label>
               <Input

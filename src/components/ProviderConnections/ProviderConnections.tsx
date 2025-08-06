@@ -29,10 +29,17 @@ export const ProviderConnections: React.FC<ProviderConnectionsProps> = ({ onClos
       
       // Group connections by provider
       const grouped = connections.reduce((acc, conn) => {
-        if (!acc[conn.provider_id]) {
-          acc[conn.provider_id] = [];
+        // Map openai-compatible connections to lm-studio if they use port 1234
+        let groupKey = conn.provider_id;
+        if (conn.provider_id === 'openai-compatible' && 
+            conn.config?.base_url?.includes('localhost:1234')) {
+          groupKey = 'lm-studio';
         }
-        acc[conn.provider_id].push(conn);
+        
+        if (!acc[groupKey]) {
+          acc[groupKey] = [];
+        }
+        acc[groupKey].push(conn);
         return acc;
       }, {} as Record<string, typeof connections>);
 
@@ -61,6 +68,12 @@ export const ProviderConnections: React.FC<ProviderConnectionsProps> = ({ onClos
           providerName: 'LM Studio',
           providerIcon: '🖥️',
           connections: grouped['lm-studio'] || [],
+        },
+        {
+          providerId: 'openai-compatible',
+          providerName: 'OpenAI Compatible',
+          providerIcon: '🔧',
+          connections: grouped['openai-compatible'] || [],
         },
       ];
 

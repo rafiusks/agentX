@@ -32,8 +32,8 @@ install:
 	npm install
 	cd agentx-backend && go mod download
 
-# Start development environment
-dev:
+# Start development environment (stops existing services first)
+dev: stop
 	./start-dev.sh
 
 # Start with Docker
@@ -50,10 +50,19 @@ frontend-dev:
 # Stop all services
 stop:
 	@echo "Stopping all services..."
-	docker-compose -f docker-compose.full.yml down 2>/dev/null || true
-	cd agentx-backend && docker-compose -f docker-compose.dev.yml down 2>/dev/null || true
+	@# Stop Docker containers
+	@docker-compose -f docker-compose.full.yml down 2>/dev/null || true
+	@cd agentx-backend && docker-compose -f docker-compose.dev.yml down 2>/dev/null || true
+	@# Stop development processes
 	@pkill -f "air" 2>/dev/null || true
 	@pkill -f "npm run dev" 2>/dev/null || true
+	@pkill -f "vite" 2>/dev/null || true
+	@pkill -f "go run cmd/server/main.go" 2>/dev/null || true
+	@# Kill anything on our ports
+	@lsof -ti:8080 | xargs kill -9 2>/dev/null || true
+	@lsof -ti:1420 | xargs kill -9 2>/dev/null || true
+	@lsof -ti:5173 | xargs kill -9 2>/dev/null || true
+	@lsof -ti:3000 | xargs kill -9 2>/dev/null || true
 	@echo "All services stopped"
 
 # Clean up everything

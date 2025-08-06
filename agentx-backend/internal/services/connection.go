@@ -28,15 +28,16 @@ func NewConnectionService(connectionRepo repository.ConnectionRepository, provid
 }
 
 // InitializeConnections loads and registers all enabled connections on startup
-func (s *ConnectionService) InitializeConnections(ctx context.Context) error {
-	connections, err := s.connectionRepo.List(ctx)
+// This is now per-user and should be called when a user logs in
+func (s *ConnectionService) InitializeUserConnections(ctx context.Context, userID uuid.UUID) error {
+	connections, err := s.connectionRepo.List(ctx, userID)
 	if err != nil {
 		return fmt.Errorf("failed to list connections: %w", err)
 	}
 	
 	for _, conn := range connections {
 		if conn.Enabled {
-			if err := s.initializeProvider(conn); err != nil {
+			if err := s.initializeProvider(userID, conn); err != nil {
 				// Log error but continue with other connections
 				fmt.Printf("Failed to initialize connection %s (%s): %v\n", conn.Name, conn.ID, err)
 			}
@@ -47,14 +48,14 @@ func (s *ConnectionService) InitializeConnections(ctx context.Context) error {
 }
 
 // ListConnections returns all connections, optionally filtered by provider ID
-func (s *ConnectionService) ListConnections(ctx context.Context, providerID string) ([]*models.ConnectionWithStatus, error) {
+func (s *ConnectionService) ListConnections(ctx context.Context, userID uuid.UUID, providerID string) ([]*models.ConnectionWithStatus, error) {
 	var connections []*repository.ProviderConnection
 	var err error
 	
 	if providerID != "" {
-		connections, err = s.connectionRepo.GetByProviderID(ctx, providerID)
+		connections, err = s.connectionRepo.GetByProviderID(ctx, userID, providerID)
 	} else {
-		connections, err = s.connectionRepo.List(ctx)
+		connections, err = s.connectionRepo.List(ctx, userID)
 	}
 	
 	if err != nil {
@@ -78,9 +79,10 @@ func (s *ConnectionService) ListConnections(ctx context.Context, providerID stri
 			},
 		}
 		
-		// Check connection status
+		// Check connection status (registry is now per-user)
 		if conn.Enabled {
-			if s.providerRegistry.Has(conn.ID) {
+			registryKey := fmt.Sprintf("%s:%s", userID.String(), conn.ID)
+			if s.providerRegistry.Has(registryKey) {
 				withStatus.Status = "connected"
 			} else {
 				withStatus.Status = "disconnected"
@@ -96,8 +98,8 @@ func (s *ConnectionService) ListConnections(ctx context.Context, providerID stri
 }
 
 // GetConnection returns a single connection by ID
-func (s *ConnectionService) GetConnection(ctx context.Context, id string) (*models.ConnectionWithStatus, error) {
-	conn, err := s.connectionRepo.GetByID(ctx, id)
+func (s *ConnectionService) GetConnection(ctx context.Context, userID uuid.UUID, id string) (*models.ConnectionWithStatus, error) {
+	conn, err := s.connectionRepo.GetByID(ctx, userID, id)
 	if err != nil {
 		return nil, err
 	}
@@ -131,39 +133,39 @@ func (s *ConnectionService) GetConnection(ctx context.Context, id string) (*mode
 }
 
 // CreateConnection creates a new connection
-func (s *ConnectionService) CreateConnection(ctx context.Context, providerID, name string, cfg map[string]interface{}) (*models.ConnectionWithStatus, error) {
+func (s *ConnectionService) CreateConnection(ctx context.Context, userID uuid.UUID, providerID, name string, cfg map[string]interface{}) (*models.ConnectionWithStatus, error) {
 	// Create the connection in the database
-	id, err := s.connectionRepo.Create(ctx, providerID, name, cfg)
+	id, err := s.connectionRepo.Create(ctx, userID, providerID, name, cfg)
 	if err != nil {
 		return nil, err
 	}
 	
 	// Get the created connection
-	conn, err := s.connectionRepo.GetByID(ctx, id)
+	conn, err := s.connectionRepo.GetByID(ctx, userID, id)
 	if err != nil {
 		return nil, err
 	}
 	
 	// Initialize the provider if enabled
 	if conn.Enabled {
-		if err := s.initializeProvider(conn); err != nil {
+		if err := s.initializeProvider(userID, conn); err != nil {
 			// Log error but don't fail creation
 			fmt.Printf("Failed to initialize provider for connection %s: %v\n", id, err)
 		}
 	}
 	
-	return s.GetConnection(ctx, id)
+	return s.GetConnection(ctx, userID, id)
 }
 
 // UpdateConnection updates a connection
-func (s *ConnectionService) UpdateConnection(ctx context.Context, id string, updates map[string]interface{}) error {
+func (s *ConnectionService) UpdateConnection(ctx context.Context, userID uuid.UUID, id string, updates map[string]interface{}) error {
 	// Update in database
-	if err := s.connectionRepo.Update(ctx, id, updates); err != nil {
+	if err := s.connectionRepo.Update(ctx, userID, id, updates); err != nil {
 		return err
 	}
 	
 	// Get updated connection
-	conn, err := s.connectionRepo.GetByID(ctx, id)
+	conn, err := s.connectionRepo.GetByID(ctx, userID, id)
 	if err != nil {
 		return err
 	}
@@ -171,11 +173,12 @@ func (s *ConnectionService) UpdateConnection(ctx context.Context, id string, upd
 	// Reinitialize provider if config changed
 	if _, hasConfig := updates["config"]; hasConfig || updates["enabled"] != nil {
 		// Remove old provider instance
-		s.providerRegistry.Unregister(id)
+		registryKey := fmt.Sprintf("%s:%s", userID.String(), id)
+		s.providerRegistry.Unregister(registryKey)
 		
 		// Initialize new instance if enabled
 		if conn.Enabled {
-			if err := s.initializeProvider(conn); err != nil {
+			if err := s.initializeProvider(userID, conn); err != nil {
 				return fmt.Errorf("failed to reinitialize provider: %w", err)
 			}
 		}
@@ -185,17 +188,18 @@ func (s *ConnectionService) UpdateConnection(ctx context.Context, id string, upd
 }
 
 // DeleteConnection deletes a connection
-func (s *ConnectionService) DeleteConnection(ctx context.Context, id string) error {
+func (s *ConnectionService) DeleteConnection(ctx context.Context, userID uuid.UUID, id string) error {
 	// Remove provider instance
-	s.providerRegistry.Unregister(id)
+	registryKey := fmt.Sprintf("%s:%s", userID.String(), id)
+	s.providerRegistry.Unregister(registryKey)
 	
 	// Delete from database
-	return s.connectionRepo.Delete(ctx, id)
+	return s.connectionRepo.Delete(ctx, userID, id)
 }
 
 // ToggleConnection toggles a connection's enabled state
-func (s *ConnectionService) ToggleConnection(ctx context.Context, id string) (*models.ConnectionWithStatus, error) {
-	conn, err := s.connectionRepo.GetByID(ctx, id)
+func (s *ConnectionService) ToggleConnection(ctx context.Context, userID uuid.UUID, id string) (*models.ConnectionWithStatus, error) {
+	conn, err := s.connectionRepo.GetByID(ctx, userID, id)
 	if err != nil {
 		return nil, err
 	}
@@ -205,16 +209,16 @@ func (s *ConnectionService) ToggleConnection(ctx context.Context, id string) (*m
 		"enabled": !conn.Enabled,
 	}
 	
-	if err := s.UpdateConnection(ctx, id, updates); err != nil {
+	if err := s.UpdateConnection(ctx, userID, id, updates); err != nil {
 		return nil, err
 	}
 	
-	return s.GetConnection(ctx, id)
+	return s.GetConnection(ctx, userID, id)
 }
 
 // TestConnection tests a connection
-func (s *ConnectionService) TestConnection(ctx context.Context, id string) (*models.TestConnectionResponse, error) {
-	conn, err := s.connectionRepo.GetByID(ctx, id)
+func (s *ConnectionService) TestConnection(ctx context.Context, userID uuid.UUID, id string) (*models.TestConnectionResponse, error) {
+	conn, err := s.connectionRepo.GetByID(ctx, userID, id)
 	if err != nil {
 		return nil, err
 	}
@@ -259,15 +263,16 @@ func (s *ConnectionService) TestConnection(ctx context.Context, id string) (*mod
 	updates := map[string]interface{}{
 		"metadata": metadata,
 	}
-	s.connectionRepo.Update(ctx, id, updates)
+	s.connectionRepo.Update(ctx, userID, id, updates)
 	
 	// If the test was successful and the connection is enabled, register the provider
 	if conn.Enabled {
 		// Remove old provider instance if exists
-		s.providerRegistry.Unregister(conn.ID)
+		registryKey := fmt.Sprintf("%s:%s", userID.String(), conn.ID)
+		s.providerRegistry.Unregister(registryKey)
 		
 		// Register the new provider instance
-		s.providerRegistry.Register(conn.ID, provider)
+		s.providerRegistry.Register(registryKey, provider)
 	}
 	
 	return &models.TestConnectionResponse{
@@ -280,27 +285,27 @@ func (s *ConnectionService) TestConnection(ctx context.Context, id string) (*mod
 }
 
 // SetDefaultConnection sets a connection as the default for its provider
-func (s *ConnectionService) SetDefaultConnection(ctx context.Context, id string) error {
-	conn, err := s.connectionRepo.GetByID(ctx, id)
+func (s *ConnectionService) SetDefaultConnection(ctx context.Context, userID uuid.UUID, id string) error {
+	conn, err := s.connectionRepo.GetByID(ctx, userID, id)
 	if err != nil {
 		return err
 	}
 	
-	return s.connectionRepo.SetDefault(ctx, conn.ProviderID, id)
+	return s.connectionRepo.SetDefault(ctx, userID, conn.ProviderID, id)
 }
 
 // GetDefaultConnection gets the default connection for a provider
-func (s *ConnectionService) GetDefaultConnection(ctx context.Context, providerID string) (*models.ConnectionWithStatus, error) {
-	conn, err := s.connectionRepo.GetDefault(ctx, providerID)
+func (s *ConnectionService) GetDefaultConnection(ctx context.Context, userID uuid.UUID, providerID string) (*models.ConnectionWithStatus, error) {
+	conn, err := s.connectionRepo.GetDefault(ctx, userID, providerID)
 	if err != nil {
 		return nil, err
 	}
 	
-	return s.GetConnection(ctx, conn.ID)
+	return s.GetConnection(ctx, userID, conn.ID)
 }
 
 // initializeProvider creates and registers a provider instance
-func (s *ConnectionService) initializeProvider(conn *repository.ProviderConnection) error {
+func (s *ConnectionService) initializeProvider(userID uuid.UUID, conn *repository.ProviderConnection) error {
 	providerConfig := config.ProviderConfig{
 		Type:    conn.ProviderID,
 		Name:    conn.Name,
@@ -313,8 +318,9 @@ func (s *ConnectionService) initializeProvider(conn *repository.ProviderConnecti
 		return err
 	}
 	
-	// Register with connection ID as the key
-	s.providerRegistry.Register(conn.ID, provider)
+	// Register with user:connection ID as the key for isolation
+	registryKey := fmt.Sprintf("%s:%s", userID.String(), conn.ID)
+	s.providerRegistry.Register(registryKey, provider)
 	
 	return nil
 }

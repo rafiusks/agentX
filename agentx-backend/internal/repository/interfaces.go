@@ -4,11 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // Session represents a chat session
 type Session struct {
 	ID        string         `db:"id"`
+	UserID    uuid.UUID      `db:"user_id"`
 	Title     string         `db:"title"`
 	Provider  sql.NullString `db:"provider"`
 	Model     sql.NullString `db:"model"`
@@ -32,11 +35,11 @@ type Message struct {
 
 // SessionRepository defines session storage operations
 type SessionRepository interface {
-	Create(ctx context.Context, session Session) (string, error)
-	Get(ctx context.Context, id string) (*Session, error)
-	List(ctx context.Context) ([]*Session, error)
-	Update(ctx context.Context, id string, updates map[string]interface{}) error
-	Delete(ctx context.Context, id string) error
+	Create(ctx context.Context, userID uuid.UUID, session Session) (string, error)
+	Get(ctx context.Context, userID uuid.UUID, id string) (*Session, error)
+	List(ctx context.Context, userID uuid.UUID) ([]*Session, error)
+	Update(ctx context.Context, userID uuid.UUID, id string, updates map[string]interface{}) error
+	Delete(ctx context.Context, userID uuid.UUID, id string) error
 }
 
 // MessageRepository defines message storage operations
@@ -67,19 +70,20 @@ type ProviderConfig struct {
 
 // ConnectionRepository defines provider connection storage operations
 type ConnectionRepository interface {
-	Create(ctx context.Context, providerID, name string, config map[string]interface{}) (string, error)
-	GetByID(ctx context.Context, id string) (*ProviderConnection, error)
-	GetByProviderID(ctx context.Context, providerID string) ([]*ProviderConnection, error)
-	List(ctx context.Context) ([]*ProviderConnection, error)
-	Update(ctx context.Context, id string, updates map[string]interface{}) error
-	Delete(ctx context.Context, id string) error
-	SetDefault(ctx context.Context, providerID string, connectionID string) error
-	GetDefault(ctx context.Context, providerID string) (*ProviderConnection, error)
+	Create(ctx context.Context, userID uuid.UUID, providerID, name string, config map[string]interface{}) (string, error)
+	GetByID(ctx context.Context, userID uuid.UUID, id string) (*ProviderConnection, error)
+	GetByProviderID(ctx context.Context, userID uuid.UUID, providerID string) ([]*ProviderConnection, error)
+	List(ctx context.Context, userID uuid.UUID) ([]*ProviderConnection, error)
+	Update(ctx context.Context, userID uuid.UUID, id string, updates map[string]interface{}) error
+	Delete(ctx context.Context, userID uuid.UUID, id string) error
+	SetDefault(ctx context.Context, userID uuid.UUID, providerID string, connectionID string) error
+	GetDefault(ctx context.Context, userID uuid.UUID, providerID string) (*ProviderConnection, error)
 }
 
 // ProviderConnection represents a named connection to a provider
 type ProviderConnection struct {
 	ID         string                 `db:"id"`
+	UserID     uuid.UUID              `db:"user_id"`
 	ProviderID string                 `db:"provider_id"`
 	Name       string                 `db:"name"`
 	Enabled    bool                   `db:"enabled"`

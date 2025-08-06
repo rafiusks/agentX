@@ -28,20 +28,7 @@ CREATE TRIGGER provider_connections_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_provider_connections_updated_at();
 
--- Migrate existing provider_configs data if it exists
-INSERT INTO provider_connections (provider_id, name, enabled, config)
-SELECT 
-    provider_id,
-    name || ' (Migrated)' as name,
-    true as enabled,
-    jsonb_build_object(
-        'api_key', api_key,
-        'base_url', base_url,
-        'models', models,
-        'default_model', default_model
-    ) as config
-FROM provider_configs
-WHERE EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'provider_configs');
+-- Skip migration from provider_configs since this is a greenfield deployment
 
 -- Add default connections table for storing user's preferred connection per provider
 CREATE TABLE IF NOT EXISTS default_connections (

@@ -2,95 +2,86 @@ import { useState, useRef, useEffect } from 'react'
 import { Send, Loader2 } from 'lucide-react'
 import { useChatStore } from '../../stores/chat.store'
 import { useUIStore } from '../../stores/ui.store'
+import { useStreamingStore } from '../../stores/streaming.store'
+import { useChats, useChat, useChatMessages, useSendStreamingMessage } from '../../hooks/queries/useChats'
+import { useDefaultConnection } from '../../hooks/queries/useConnections'
 import { ChatMessage } from './ChatMessage'
 import { ChatSidebar } from './ChatSidebar'
-import { api } from '../../services/api'
 
 export function Chat() {
   const [input, setInput] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   
   const { 
-    sessions, 
-    currentSessionId, 
-    currentProvider,
-    createSession, 
-    addMessage,
-    updateMessage 
+    currentChatId,
+    currentConnectionId,
+    setCurrentChatId,
+    setCurrentConnectionId,
+    composerDraft,
+    setComposerDraft
   } = useChatStore()
   
   const { mode } = useUIStore()
-
-  const currentSession = sessions.find(s => s.id === currentSessionId)
+  const { streamingMessage, isStreaming } = useStreamingStore()
+  
+  // Query hooks
+  const { data: chats = [] } = useChats()
+  const { data: currentChat } = useChat(currentChatId || undefined)
+  const { data: messages = [] } = useChatMessages(currentChatId || undefined)
+  const { data: defaultConnection } = useDefaultConnection()
+  const sendMessageMutation = useSendStreamingMessage()
 
   useEffect(() => {
-    // Create initial session if none exists
-    if (sessions.length === 0) {
-      createSession()
+    // Select first chat if none selected but chats exist
+    if (chats.length > 0 && !currentChatId) {
+      const firstChatId = chats[0].ID || chats[0].id;
+      if (firstChatId) {
+        setCurrentChatId(firstChatId)
+      }
     }
-  }, [])
+  }, [chats, currentChatId])
+  
+  // Set connection from default if not set
+  useEffect(() => {
+    if (defaultConnection && !currentConnectionId) {
+      setCurrentConnectionId(defaultConnection.id)
+    }
+  }, [defaultConnection, currentConnectionId])
 
   useEffect(() => {
     // Scroll to bottom on new messages
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [currentSession?.messages])
+  }, [messages, streamingMessage])
+
+  // Sync draft with input
+  useEffect(() => {
+    setInput(composerDraft)
+  }, [composerDraft])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!input.trim() || isLoading || !currentSessionId) return
+    if (!input.trim() || isStreaming || !currentChatId || !currentConnectionId) return
     
-    const userMessage = {
-      id: Date.now().toString(),
-      role: 'user' as const,
-      content: input.trim()
-    }
-    
-    addMessage(currentSessionId, userMessage)
+    const messageContent = input.trim()
     setInput('')
-    setIsLoading(true)
+    setComposerDraft('')
     
-    try {
-      // Create assistant message placeholder
-      const assistantMessage = {
-        id: Date.now().toString() + '-assistant',
-        role: 'assistant' as const,
-        content: ''
+    // Send message using mutation
+    sendMessageMutation.mutate({
+      chat_id: currentChatId,
+      content: messageContent,
+      connection_id: currentConnectionId,
+      stream: true
+    }, {
+      onError: (error) => {
+        console.error('Failed to send message:', error)
+        // Restore input on error
+        setInput(messageContent)
+        setComposerDraft(messageContent)
       }
-      addMessage(currentSessionId, assistantMessage)
-      
-      // Stream the response
-      let fullContent = ''
-      await api.streamChat(
-        {
-          messages: currentSession?.messages || [],
-          session_id: currentSessionId,
-          preferences: {
-            provider: currentProvider
-          }
-        },
-        (chunk) => {
-          if (chunk.type === 'content') {
-            fullContent += chunk.content
-            updateMessage(currentSessionId, assistantMessage.id, fullContent)
-          } else if (chunk.type === 'error') {
-            console.error('Stream error:', chunk.error)
-            updateMessage(currentSessionId, assistantMessage.id, 'Error: ' + chunk.error.message)
-          }
-        }
-      )
-    } catch (error) {
-      console.error('Failed to send message:', error)
-      addMessage(currentSessionId, {
-        id: Date.now().toString() + '-error',
-        role: 'assistant' as const,
-        content: `Error: ${error instanceof Error ? error.message : 'Failed to send message'}`
-      })
-    } finally {
-      setIsLoading(false)
-    }
+    })
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -100,60 +91,101 @@ export function Chat() {
     }
   }
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value)
+    setComposerDraft(e.target.value)
+  }
+
   const showSidebar = mode !== 'simple'
 
+  // Combine regular messages with streaming message
+  const allMessages = [
+    ...(Array.isArray(messages) ? messages : []),
+    ...(streamingMessage ? [streamingMessage] : [])
+  ]
+
   return (
-    <div className="flex flex-1 overflow-hidden">
+    <div className="flex w-full h-full overflow-hidden">
       {showSidebar && <ChatSidebar />}
       
-      <div className="flex-1 flex flex-col">
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-4 py-6">
-          <div className="max-w-4xl mx-auto space-y-6">
-            {currentSession?.messages.map((message) => (
-              <ChatMessage key={message.id} message={message} />
-            ))}
-            {isLoading && (
-              <div className="flex items-center gap-2 text-foreground-secondary">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Thinking...</span>
-              </div>
-            )}
-            <div ref={messagesEndRef} />
+      <div className="flex-1 flex flex-col h-full">
+        {/* Show empty state if no chat is selected */}
+        {!currentChatId ? (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center space-y-4 max-w-md">
+              <div className="text-6xl">💬</div>
+              <h2 className="text-2xl font-semibold text-foreground-primary">
+                Start a New Conversation
+              </h2>
+              <p className="text-foreground-secondary">
+                Click "New Chat" to begin or select an existing conversation from the sidebar
+              </p>
+            </div>
           </div>
-        </div>
+        ) : (
+          <>
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto px-4 py-6">
+              <div className="max-w-4xl mx-auto space-y-6">
+                {allMessages.length === 0 ? (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-center space-y-2">
+                      <p className="text-foreground-secondary">No messages yet. Start the conversation!</p>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {allMessages.map((message, index) => (
+                      <ChatMessage key={message.id || `msg-${index}`} message={message} />
+                    ))}
+                    {isStreaming && !streamingMessage && (
+                      <div className="flex items-center gap-2 text-foreground-secondary">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Thinking...</span>
+                      </div>
+                    )}
+                  </>
+                )}
+                <div ref={messagesEndRef} />
+              </div>
+            </div>
 
-        {/* Input */}
-        <form onSubmit={handleSubmit} className="border-t border-border-subtle">
+            {/* Input */}
+            <form onSubmit={handleSubmit} className="border-t border-border-subtle">
           <div className="max-w-4xl mx-auto p-4">
             <div className="relative">
               <textarea
                 ref={inputRef}
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
+                onChange={handleInputChange}
                 onKeyDown={handleKeyDown}
-                placeholder="Send a message..."
-                className="w-full px-4 py-3 pr-12 bg-background-secondary rounded-lg border border-border-subtle focus:border-accent-primary focus:outline-none resize-none"
-                rows={1}
-                style={{
-                  minHeight: '48px',
-                  maxHeight: '200px'
-                }}
+                placeholder={isStreaming ? "Waiting for response..." : "Type a message..."}
+                disabled={isStreaming}
+                className="w-full px-4 py-3 pr-12 bg-background-primary border border-border-default 
+                         rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-accent-primary 
+                         text-foreground-primary placeholder-foreground-tertiary
+                         disabled:opacity-50 disabled:cursor-not-allowed"
+                rows={3}
               />
               <button
                 type="submit"
-                disabled={!input.trim() || isLoading}
-                className="absolute right-2 bottom-2 p-2 rounded-md bg-accent-primary text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-accent-primary/90 transition-colors"
+                disabled={!input.trim() || isStreaming}
+                className="absolute bottom-3 right-3 p-2 rounded-md
+                         bg-accent-primary text-white disabled:opacity-50 
+                         disabled:cursor-not-allowed hover:bg-accent-primary-hover
+                         transition-colors"
               >
-                {isLoading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                {isStreaming ? (
+                  <Loader2 size={18} className="animate-spin" />
                 ) : (
-                  <Send className="w-4 h-4" />
+                  <Send size={18} />
                 )}
               </button>
             </div>
           </div>
         </form>
+          </>
+        )}
       </div>
     </div>
   )

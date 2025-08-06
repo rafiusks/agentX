@@ -22,7 +22,7 @@ func NewConnectionRepository(db *sqlx.DB) repository.ConnectionRepository {
 }
 
 // Create creates a new provider connection
-func (r *connectionRepository) Create(ctx context.Context, providerID, name string, config map[string]interface{}) (string, error) {
+func (r *connectionRepository) Create(ctx context.Context, userID uuid.UUID, providerID, name string, config map[string]interface{}) (string, error) {
 	id := uuid.New().String()
 	
 	configJSON, err := json.Marshal(config)
@@ -31,13 +31,13 @@ func (r *connectionRepository) Create(ctx context.Context, providerID, name stri
 	}
 	
 	query := `
-		INSERT INTO provider_connections (id, provider_id, name, config)
-		VALUES ($1, $2, $3, $4)
+		INSERT INTO provider_connections (id, user_id, provider_id, name, config)
+		VALUES ($1, $2, $3, $4, $5)
 		RETURNING id
 	`
 	
 	var returnedID string
-	err = r.db.QueryRowxContext(ctx, query, id, providerID, name, configJSON).Scan(&returnedID)
+	err = r.db.QueryRowxContext(ctx, query, id, userID, providerID, name, configJSON).Scan(&returnedID)
 	if err != nil {
 		return "", fmt.Errorf("failed to create connection: %w", err)
 	}
@@ -46,15 +46,15 @@ func (r *connectionRepository) Create(ctx context.Context, providerID, name stri
 }
 
 // GetByID retrieves a connection by its ID
-func (r *connectionRepository) GetByID(ctx context.Context, id string) (*repository.ProviderConnection, error) {
+func (r *connectionRepository) GetByID(ctx context.Context, userID uuid.UUID, id string) (*repository.ProviderConnection, error) {
 	query := `
-		SELECT id, provider_id, name, enabled, config, metadata, created_at, updated_at
+		SELECT id, user_id, provider_id, name, enabled, config, metadata, created_at, updated_at
 		FROM provider_connections
-		WHERE id = $1
+		WHERE id = $1 AND user_id = $2
 	`
 	
 	var conn dbConnection
-	err := r.db.GetContext(ctx, &conn, query, id)
+	err := r.db.GetContext(ctx, &conn, query, id, userID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("connection not found")
@@ -66,16 +66,16 @@ func (r *connectionRepository) GetByID(ctx context.Context, id string) (*reposit
 }
 
 // GetByProviderID retrieves all connections for a specific provider
-func (r *connectionRepository) GetByProviderID(ctx context.Context, providerID string) ([]*repository.ProviderConnection, error) {
+func (r *connectionRepository) GetByProviderID(ctx context.Context, userID uuid.UUID, providerID string) ([]*repository.ProviderConnection, error) {
 	query := `
-		SELECT id, provider_id, name, enabled, config, metadata, created_at, updated_at
+		SELECT id, user_id, provider_id, name, enabled, config, metadata, created_at, updated_at
 		FROM provider_connections
-		WHERE provider_id = $1
+		WHERE provider_id = $1 AND user_id = $2
 		ORDER BY created_at DESC
 	`
 	
 	var dbConns []dbConnection
-	err := r.db.SelectContext(ctx, &dbConns, query, providerID)
+	err := r.db.SelectContext(ctx, &dbConns, query, providerID, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list connections: %w", err)
 	}
@@ -93,15 +93,16 @@ func (r *connectionRepository) GetByProviderID(ctx context.Context, providerID s
 }
 
 // List retrieves all connections
-func (r *connectionRepository) List(ctx context.Context) ([]*repository.ProviderConnection, error) {
+func (r *connectionRepository) List(ctx context.Context, userID uuid.UUID) ([]*repository.ProviderConnection, error) {
 	query := `
-		SELECT id, provider_id, name, enabled, config, metadata, created_at, updated_at
+		SELECT id, user_id, provider_id, name, enabled, config, metadata, created_at, updated_at
 		FROM provider_connections
+		WHERE user_id = $1
 		ORDER BY provider_id, created_at DESC
 	`
 	
 	var dbConns []dbConnection
-	err := r.db.SelectContext(ctx, &dbConns, query)
+	err := r.db.SelectContext(ctx, &dbConns, query, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list connections: %w", err)
 	}
@@ -119,7 +120,7 @@ func (r *connectionRepository) List(ctx context.Context) ([]*repository.Provider
 }
 
 // Update updates a connection
-func (r *connectionRepository) Update(ctx context.Context, id string, updates map[string]interface{}) error {
+func (r *connectionRepository) Update(ctx context.Context, userID uuid.UUID, id string, updates map[string]interface{}) error {
 	// Build dynamic update query
 	setClauses := make([]string, 0)
 	args := make([]interface{}, 0)
@@ -158,14 +159,14 @@ func (r *connectionRepository) Update(ctx context.Context, id string, updates ma
 		return nil // Nothing to update
 	}
 	
-	// Add ID as the last argument
-	args = append(args, id)
+	// Add ID and userID as the last arguments
+	args = append(args, id, userID)
 	
 	query := fmt.Sprintf(`
 		UPDATE provider_connections
 		SET %s
-		WHERE id = $%d
-	`, joinStrings(setClauses, ", "), argCount)
+		WHERE id = $%d AND user_id = $%d
+	`, joinStrings(setClauses, ", "), argCount, argCount+1)
 	
 	result, err := r.db.ExecContext(ctx, query, args...)
 	if err != nil {
@@ -185,10 +186,10 @@ func (r *connectionRepository) Update(ctx context.Context, id string, updates ma
 }
 
 // Delete deletes a connection
-func (r *connectionRepository) Delete(ctx context.Context, id string) error {
-	query := `DELETE FROM provider_connections WHERE id = $1`
+func (r *connectionRepository) Delete(ctx context.Context, userID uuid.UUID, id string) error {
+	query := `DELETE FROM provider_connections WHERE id = $1 AND user_id = $2`
 	
-	result, err := r.db.ExecContext(ctx, query, id)
+	result, err := r.db.ExecContext(ctx, query, id, userID)
 	if err != nil {
 		return fmt.Errorf("failed to delete connection: %w", err)
 	}
@@ -206,15 +207,15 @@ func (r *connectionRepository) Delete(ctx context.Context, id string) error {
 }
 
 // SetDefault sets the default connection for a provider
-func (r *connectionRepository) SetDefault(ctx context.Context, providerID string, connectionID string) error {
+func (r *connectionRepository) SetDefault(ctx context.Context, userID uuid.UUID, providerID string, connectionID string) error {
 	query := `
-		INSERT INTO default_connections (provider_id, connection_id)
-		VALUES ($1, $2)
-		ON CONFLICT (provider_id) DO UPDATE
+		INSERT INTO default_connections (user_id, provider_id, connection_id)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (user_id, provider_id) DO UPDATE
 		SET connection_id = EXCLUDED.connection_id
 	`
 	
-	_, err := r.db.ExecContext(ctx, query, providerID, connectionID)
+	_, err := r.db.ExecContext(ctx, query, userID, providerID, connectionID)
 	if err != nil {
 		return fmt.Errorf("failed to set default connection: %w", err)
 	}
@@ -223,20 +224,20 @@ func (r *connectionRepository) SetDefault(ctx context.Context, providerID string
 }
 
 // GetDefault gets the default connection for a provider
-func (r *connectionRepository) GetDefault(ctx context.Context, providerID string) (*repository.ProviderConnection, error) {
+func (r *connectionRepository) GetDefault(ctx context.Context, userID uuid.UUID, providerID string) (*repository.ProviderConnection, error) {
 	query := `
-		SELECT pc.id, pc.provider_id, pc.name, pc.enabled, pc.config, pc.metadata, pc.created_at, pc.updated_at
+		SELECT pc.id, pc.user_id, pc.provider_id, pc.name, pc.enabled, pc.config, pc.metadata, pc.created_at, pc.updated_at
 		FROM provider_connections pc
 		JOIN default_connections dc ON pc.id = dc.connection_id
-		WHERE dc.provider_id = $1 AND pc.enabled = true
+		WHERE dc.user_id = $1 AND dc.provider_id = $2 AND pc.enabled = true
 	`
 	
 	var conn dbConnection
-	err := r.db.GetContext(ctx, &conn, query, providerID)
+	err := r.db.GetContext(ctx, &conn, query, userID, providerID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			// No default set, return any enabled connection for the provider
-			return r.getFirstEnabled(ctx, providerID)
+			return r.getFirstEnabled(ctx, userID, providerID)
 		}
 		return nil, fmt.Errorf("failed to get default connection: %w", err)
 	}
@@ -245,17 +246,17 @@ func (r *connectionRepository) GetDefault(ctx context.Context, providerID string
 }
 
 // getFirstEnabled returns the first enabled connection for a provider
-func (r *connectionRepository) getFirstEnabled(ctx context.Context, providerID string) (*repository.ProviderConnection, error) {
+func (r *connectionRepository) getFirstEnabled(ctx context.Context, userID uuid.UUID, providerID string) (*repository.ProviderConnection, error) {
 	query := `
-		SELECT id, provider_id, name, enabled, config, metadata, created_at, updated_at
+		SELECT id, user_id, provider_id, name, enabled, config, metadata, created_at, updated_at
 		FROM provider_connections
-		WHERE provider_id = $1 AND enabled = true
+		WHERE user_id = $1 AND provider_id = $2 AND enabled = true
 		ORDER BY created_at ASC
 		LIMIT 1
 	`
 	
 	var conn dbConnection
-	err := r.db.GetContext(ctx, &conn, query, providerID)
+	err := r.db.GetContext(ctx, &conn, query, userID, providerID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("no enabled connections for provider %s", providerID)
@@ -269,6 +270,7 @@ func (r *connectionRepository) getFirstEnabled(ctx context.Context, providerID s
 // dbConnection represents the database structure
 type dbConnection struct {
 	ID         string         `db:"id"`
+	UserID     string         `db:"user_id"`
 	ProviderID string         `db:"provider_id"`
 	Name       string         `db:"name"`
 	Enabled    bool           `db:"enabled"`
@@ -280,8 +282,14 @@ type dbConnection struct {
 
 // toModel converts the database structure to the repository model
 func (c *dbConnection) toModel() (*repository.ProviderConnection, error) {
+	userID, err := uuid.Parse(c.UserID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse user ID: %w", err)
+	}
+	
 	conn := &repository.ProviderConnection{
 		ID:         c.ID,
+		UserID:     userID,
 		ProviderID: c.ProviderID,
 		Name:       c.Name,
 		Enabled:    c.Enabled,

@@ -8,6 +8,18 @@ NC='\033[0m' # No Color
 
 echo -e "${GREEN}Starting AgentX Development Environment${NC}"
 
+# Stop any existing services first
+echo -e "${YELLOW}Stopping any existing services...${NC}"
+pkill -f "air" 2>/dev/null || true
+pkill -f "npm run dev" 2>/dev/null || true
+pkill -f "vite" 2>/dev/null || true
+pkill -f "go run cmd/server/main.go" 2>/dev/null || true
+# Also kill any process on our ports
+lsof -ti:8080 | xargs kill -9 2>/dev/null || true
+lsof -ti:1420 | xargs kill -9 2>/dev/null || true
+lsof -ti:5173 | xargs kill -9 2>/dev/null || true
+lsof -ti:3000 | xargs kill -9 2>/dev/null || true
+
 # Check if .env exists (for non-sensitive config only)
 if [ ! -f .env ]; then
     echo -e "${YELLOW}Creating .env file from template...${NC}"
@@ -55,7 +67,7 @@ cd ..
 # Wait for backend to be ready
 echo -e "${GREEN}Waiting for backend to be ready...${NC}"
 for i in {1..30}; do
-    if curl -s http://localhost:3000/api/v1/health > /dev/null 2>&1; then
+    if curl -s http://localhost:8080/api/v1/health > /dev/null 2>&1; then
         echo -e "${GREEN}Backend is ready!${NC}"
         break
     fi
@@ -83,8 +95,8 @@ cleanup() {
 trap cleanup EXIT
 
 echo -e "\n${GREEN}AgentX is running!${NC}"
-echo -e "Frontend: ${GREEN}http://localhost:5173${NC}"
-echo -e "Backend API: ${GREEN}http://localhost:3000/api/v1${NC}"
+echo -e "Frontend: ${GREEN}http://localhost:1420${NC}"
+echo -e "Backend API: ${GREEN}http://localhost:8080/api/v1${NC}"
 echo -e "PostgreSQL: ${GREEN}localhost:5432${NC}"
 echo -e "\nPress ${YELLOW}Ctrl+C${NC} to stop all services"
 

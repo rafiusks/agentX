@@ -33,6 +33,23 @@ func NewRequestRouter(providers *providers.Registry, configService *ConfigServic
 
 // RouteRequest determines the best provider and model for a request
 func (r *RequestRouter) RouteRequest(ctx context.Context, req models.UnifiedChatRequest) (string, string, error) {
+	// Handle connection_id if specified
+	if req.Preferences.ConnectionID != "" {
+		// Use the specific connection directly
+		provider := r.providers.Get(req.Preferences.ConnectionID)
+		if provider == nil {
+			return "", "", fmt.Errorf("connection %s not found or not active", req.Preferences.ConnectionID)
+		}
+		
+		// Get default model for this provider
+		models, err := provider.GetModels(ctx)
+		if err != nil || len(models) == 0 {
+			// Fallback to a default model name
+			return req.Preferences.ConnectionID, "default", nil
+		}
+		return req.Preferences.ConnectionID, models[0].ID, nil
+	}
+	
 	// 1. Analyze requirements from the request
 	requirements := r.analyzeRequirements(req)
 

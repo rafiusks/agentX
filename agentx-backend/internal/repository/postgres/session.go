@@ -21,8 +21,9 @@ func NewSessionRepository(db *sqlx.DB) repository.SessionRepository {
 }
 
 // Create creates a new session
-func (r *SessionRepository) Create(ctx context.Context, session repository.Session) (string, error) {
+func (r *SessionRepository) Create(ctx context.Context, userID uuid.UUID, session repository.Session) (string, error) {
 	session.ID = uuid.New().String()
+	session.UserID = userID
 	session.CreatedAt = time.Now()
 	session.UpdatedAt = time.Now()
 	
@@ -31,8 +32,8 @@ func (r *SessionRepository) Create(ctx context.Context, session repository.Sessi
 	}
 	
 	query := `
-		INSERT INTO sessions (id, title, provider, model, created_at, updated_at, metadata)
-		VALUES (:id, :title, :provider, :model, :created_at, :updated_at, :metadata)
+		INSERT INTO sessions (id, user_id, title, provider, model, created_at, updated_at, metadata)
+		VALUES (:id, :user_id, :title, :provider, :model, :created_at, :updated_at, :metadata)
 	`
 	
 	_, err := r.db.NamedExecContext(ctx, query, session)
@@ -44,15 +45,15 @@ func (r *SessionRepository) Create(ctx context.Context, session repository.Sessi
 }
 
 // Get retrieves a session by ID
-func (r *SessionRepository) Get(ctx context.Context, id string) (*repository.Session, error) {
+func (r *SessionRepository) Get(ctx context.Context, userID uuid.UUID, id string) (*repository.Session, error) {
 	var session repository.Session
 	query := `
-		SELECT id, title, provider, model, created_at, updated_at, metadata
+		SELECT id, user_id, title, provider, model, created_at, updated_at, metadata
 		FROM sessions
-		WHERE id = $1
+		WHERE id = $1 AND user_id = $2
 	`
 	
-	err := r.db.GetContext(ctx, &session, query, id)
+	err := r.db.GetContext(ctx, &session, query, id, userID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -64,15 +65,16 @@ func (r *SessionRepository) Get(ctx context.Context, id string) (*repository.Ses
 }
 
 // List retrieves all sessions
-func (r *SessionRepository) List(ctx context.Context) ([]*repository.Session, error) {
+func (r *SessionRepository) List(ctx context.Context, userID uuid.UUID) ([]*repository.Session, error) {
 	var sessions []*repository.Session
 	query := `
-		SELECT id, title, provider, model, created_at, updated_at, metadata
+		SELECT id, user_id, title, provider, model, created_at, updated_at, metadata
 		FROM sessions
+		WHERE user_id = $1
 		ORDER BY updated_at DESC
 	`
 	
-	err := r.db.SelectContext(ctx, &sessions, query)
+	err := r.db.SelectContext(ctx, &sessions, query, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -81,12 +83,12 @@ func (r *SessionRepository) List(ctx context.Context) ([]*repository.Session, er
 }
 
 // Update updates a session
-func (r *SessionRepository) Update(ctx context.Context, id string, updates map[string]interface{}) error {
+func (r *SessionRepository) Update(ctx context.Context, userID uuid.UUID, id string, updates map[string]interface{}) error {
 	updates["updated_at"] = time.Now()
 	
 	// Build dynamic update query
 	setClause := ""
-	params := map[string]interface{}{"id": id}
+	params := map[string]interface{}{"id": id, "user_id": userID}
 	
 	for key, value := range updates {
 		if setClause != "" {
@@ -96,15 +98,15 @@ func (r *SessionRepository) Update(ctx context.Context, id string, updates map[s
 		params[key] = value
 	}
 	
-	query := "UPDATE sessions SET " + setClause + " WHERE id = :id"
+	query := "UPDATE sessions SET " + setClause + " WHERE id = :id AND user_id = :user_id"
 	
 	_, err := r.db.NamedExecContext(ctx, query, params)
 	return err
 }
 
 // Delete deletes a session
-func (r *SessionRepository) Delete(ctx context.Context, id string) error {
-	query := "DELETE FROM sessions WHERE id = $1"
-	_, err := r.db.ExecContext(ctx, query, id)
+func (r *SessionRepository) Delete(ctx context.Context, userID uuid.UUID, id string) error {
+	query := "DELETE FROM sessions WHERE id = $1 AND user_id = $2"
+	_, err := r.db.ExecContext(ctx, query, id, userID)
 	return err
 }

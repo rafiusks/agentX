@@ -1,7 +1,10 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import App from './App.tsx'
+import { QueryClientProvider } from '@tanstack/react-query'
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
+import AppWithAuth from './AppWithAuth.tsx'
 import { ErrorBoundary } from './components/ErrorBoundary.tsx'
+import { queryClient } from './lib/query-client'
 import './styles/globals.css'
 
 console.log('Main.tsx loading...');
@@ -17,9 +20,12 @@ if (root) {
   setTimeout(() => {
     ReactDOM.createRoot(root).render(
       <React.StrictMode>
-        <ErrorBoundary>
-          <App />
-        </ErrorBoundary>
+        <QueryClientProvider client={queryClient}>
+          <ErrorBoundary>
+            <AppWithAuth />
+          </ErrorBoundary>
+          <ReactQueryDevtools initialIsOpen={false} />
+        </QueryClientProvider>
       </React.StrictMode>,
     )
     console.log('React app rendered');

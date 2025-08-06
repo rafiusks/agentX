@@ -8,8 +8,10 @@ import { Welcome } from './components/Welcome/Welcome'
 import { Help } from './components/Help/Help'
 import { MCPServers } from './components/MCPServers/MCPServers'
 import { ModeToggle } from './components/ModeToggle/ModeToggle'
+import { UserMenu } from './components/Auth/UserMenu'
 import { useChatStore } from './stores/chat.store'
 import { useUIStore } from './stores/ui.store'
+import { useCurrentUser } from './hooks/queries/useAuth'
 import { Command } from 'lucide-react'
 import { api } from './services/api'
 // Verify correct API is imported
@@ -135,6 +137,10 @@ function App() {
         </div>
         
         <div className="flex items-center gap-3">
+          <UserMenu />
+          
+          <div className="w-px h-6 bg-border-subtle" />
+          
           <ModeToggle />
           
           <div className="w-px h-6 bg-border-subtle" />
@@ -157,7 +163,7 @@ function App() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 flex overflow-hidden">
         {currentTab === 'chat' && (
           <Chat />
         )}

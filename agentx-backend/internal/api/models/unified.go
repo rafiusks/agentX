@@ -32,11 +32,12 @@ type UnifiedChatRequest struct {
 
 // Preferences for routing decisions
 type Preferences struct {
-	Speed    string `json:"speed,omitempty"`    // fast, balanced, quality
-	Cost     string `json:"cost,omitempty"`     // economy, standard, premium
-	Privacy  string `json:"privacy,omitempty"`  // local, cloud
-	Provider string `json:"provider,omitempty"` // optional override
-	Model    string `json:"model,omitempty"`    // optional override
+	Speed        string `json:"speed,omitempty"`         // fast, balanced, quality
+	Cost         string `json:"cost,omitempty"`          // economy, standard, premium
+	Privacy      string `json:"privacy,omitempty"`       // local, cloud
+	Provider     string `json:"provider,omitempty"`      // optional override (legacy)
+	Model        string `json:"model,omitempty"`         // optional override
+	ConnectionID string `json:"connection_id,omitempty"` // specific connection to use
 }
 
 // Image for multimodal requests

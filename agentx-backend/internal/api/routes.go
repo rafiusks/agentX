@@ -17,7 +17,7 @@ func SetupRoutes(app *fiber.App, svc *services.Services) {
 	
 	// Unified endpoints (new, frontend-agnostic)
 	api.Post("/chat", unifiedHandler.Chat)
-	api.Get("/chat/stream", unifiedHandler.StreamChatSSE)  // SSE endpoint
+	api.Post("/chat/stream", unifiedHandler.StreamChatSSE)  // SSE endpoint
 	api.Get("/models", unifiedHandler.GetModels)
 	
 	// Legacy endpoints for backward compatibility
@@ -43,6 +43,7 @@ func SetupRoutes(app *fiber.App, svc *services.Services) {
 	// Connections management (new multi-connection system)
 	connectionHandlers := handlers.NewConnectionHandlers(svc.Connection)
 	api.Get("/connections", connectionHandlers.ListConnections)
+	api.Get("/connections/default", connectionHandlers.GetDefaultConnection)
 	api.Post("/connections", connectionHandlers.CreateConnection)
 	api.Get("/connections/:id", connectionHandlers.GetConnection)
 	api.Put("/connections/:id", connectionHandlers.UpdateConnection)

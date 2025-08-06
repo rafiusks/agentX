@@ -74,16 +74,33 @@ export interface Session {
 }
 
 class ApiService {
+  private getAuthHeaders(): Record<string, string> {
+    const token = localStorage.getItem('access_token');
+    if (token) {
+      return { Authorization: `Bearer ${token}` };
+    }
+    return {};
+  }
+
   private async fetch(path: string, options?: RequestInit) {
     const response = await fetch(`${API_BASE_URL}${path}`, {
       ...options,
       headers: {
         'Content-Type': 'application/json',
+        ...this.getAuthHeaders(),
         ...options?.headers,
       },
     });
 
     if (!response.ok) {
+      // Handle 401 Unauthorized - token might be expired
+      if (response.status === 401) {
+        // The auth interceptor in auth.ts will handle token refresh
+        // For now, just throw the error
+        const error = await response.json().catch(() => ({ error: 'Unauthorized' }));
+        throw new Error(error.error || 'Authentication required');
+      }
+      
       const error = await response.json().catch(() => ({ error: response.statusText }));
       throw new Error(error.error || `API request failed: ${response.status}`);
     }
@@ -123,9 +140,10 @@ class ApiService {
 
   async streamChat(request: ChatRequest, onChunk: (chunk: any) => void) {
     const response = await fetch(`${API_BASE_URL}/chat/stream`, {
-      method: 'GET',
+      method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...this.getAuthHeaders(),
       },
       body: JSON.stringify(request),
     });

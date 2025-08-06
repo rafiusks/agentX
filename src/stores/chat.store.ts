@@ -1,122 +1,71 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 
-export interface FunctionCall {
-  name: string
-  arguments: string
-}
+/**
+ * Chat Store - Only handles client-side chat UI state
+ * Server state (sessions, messages) is managed by TanStack Query
+ */
 
-export interface Message {
-  id: string
-  role: 'user' | 'assistant' | 'system' | 'function'
-  content: string
-  timestamp: Date
-  isStreaming?: boolean
-  functionCall?: FunctionCall
-}
-
-export interface ChatSession {
-  id: string
-  title: string
-  messages: Message[]
-  createdAt: Date
-  updatedAt: Date
-}
-
-interface ChatState {
-  sessions: ChatSession[]
-  currentSessionId: string | null
+interface ChatUIState {
+  // Current active chat/connection
+  currentChatId: string | null
   currentConnectionId: string | null
   
+  // UI state
+  isComposerFocused: boolean
+  composerDraft: string
+  showChatHistory: boolean
+  selectedMessageId: string | null
+  
   // Actions
-  createSession: () => string
-  deleteSession: (id: string) => void
-  setCurrentSession: (id: string) => void
-  addMessage: (sessionId: string, message: Omit<Message, 'id' | 'timestamp'>) => void
-  updateMessage: (sessionId: string, messageId: string, content: string, isStreaming?: boolean) => void
-  setCurrentConnectionId: (connectionId: string) => void
-  clearSessions: () => void
+  setCurrentChatId: (chatId: string | null) => void
+  setCurrentConnectionId: (connectionId: string | null) => void
+  setComposerFocused: (focused: boolean) => void
+  setComposerDraft: (draft: string) => void
+  toggleChatHistory: () => void
+  setSelectedMessageId: (messageId: string | null) => void
+  clearChatUI: () => void
 }
 
-export const useChatStore = create<ChatState>((set) => ({
-  sessions: [],
-  currentSessionId: null,
-  currentConnectionId: null,
-  
-  createSession: () => {
-    const id = crypto.randomUUID()
-    const newSession: ChatSession = {
-      id,
-      title: 'New Chat',
-      messages: [],
-      createdAt: new Date(),
-      updatedAt: new Date(),
+export const useChatStore = create<ChatUIState>()(
+  persist(
+    (set) => ({
+      // State
+      currentChatId: null,
+      currentConnectionId: null,
+      isComposerFocused: false,
+      composerDraft: '',
+      showChatHistory: true,
+      selectedMessageId: null,
+      
+      // Actions
+      setCurrentChatId: (chatId) => set({ currentChatId: chatId }),
+      
+      setCurrentConnectionId: (connectionId) => set({ currentConnectionId: connectionId }),
+      
+      setComposerFocused: (focused) => set({ isComposerFocused: focused }),
+      
+      setComposerDraft: (draft) => set({ composerDraft: draft }),
+      
+      toggleChatHistory: () => set((state) => ({ showChatHistory: !state.showChatHistory })),
+      
+      setSelectedMessageId: (messageId) => set({ selectedMessageId: messageId }),
+      
+      clearChatUI: () => set({
+        currentChatId: null,
+        currentConnectionId: null,
+        isComposerFocused: false,
+        composerDraft: '',
+        selectedMessageId: null,
+      }),
+    }),
+    {
+      name: 'agentx-chat-ui',
+      partialize: (state) => ({
+        // Only persist drafts and preferences
+        composerDraft: state.composerDraft,
+        showChatHistory: state.showChatHistory,
+      }),
     }
-    
-    set(state => ({
-      sessions: [...state.sessions, newSession],
-      currentSessionId: id
-    }))
-    
-    return id
-  },
-  
-  deleteSession: (id) => {
-    set(state => ({
-      sessions: state.sessions.filter(s => s.id !== id),
-      currentSessionId: state.currentSessionId === id ? null : state.currentSessionId
-    }))
-  },
-  
-  setCurrentSession: (id) => {
-    set({ currentSessionId: id })
-  },
-  
-  addMessage: (sessionId, message) => {
-    const newMessage: Message = {
-      ...message,
-      id: crypto.randomUUID(),
-      timestamp: new Date()
-    }
-    
-    set(state => ({
-      sessions: state.sessions.map(session => 
-        session.id === sessionId
-          ? {
-              ...session,
-              messages: [...session.messages, newMessage],
-              updatedAt: new Date(),
-              title: session.messages.length === 0 && message.role === 'user' 
-                ? message.content.slice(0, 50) + (message.content.length > 50 ? '...' : '')
-                : session.title
-            }
-          : session
-      )
-    }))
-  },
-  
-  updateMessage: (sessionId, messageId, content, isStreaming = false) => {
-    set(state => ({
-      sessions: state.sessions.map(session => 
-        session.id === sessionId
-          ? {
-              ...session,
-              messages: session.messages.map(msg => 
-                msg.id === messageId
-                  ? { ...msg, content, isStreaming }
-                  : msg
-              ),
-              updatedAt: new Date()
-            }
-          : session
-      )
-    }))
-  },
-  
-  setCurrentConnectionId: (connectionId) => {
-    set({ currentConnectionId: connectionId })
-  },
-  
-  clearSessions: () => {
-    set({ sessions: [], currentSessionId: null })
-  }
-}))
+  )
+)

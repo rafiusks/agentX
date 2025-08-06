@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"log"
 	"os"
 
@@ -9,13 +8,13 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
-	"github.com/gofiber/websocket/v2"
 
 	"github.com/agentx/agentx-backend/internal/api"
+	"github.com/agentx/agentx-backend/internal/audit"
+	"github.com/agentx/agentx-backend/internal/auth"
 	"github.com/agentx/agentx-backend/internal/config"
 	"github.com/agentx/agentx-backend/internal/database"
 	"github.com/agentx/agentx-backend/internal/providers"
-	"github.com/agentx/agentx-backend/internal/providers/factory"
 	"github.com/agentx/agentx-backend/internal/repository/postgres"
 	"github.com/agentx/agentx-backend/internal/services"
 )
@@ -49,9 +48,10 @@ func main() {
 	app.Use(recover.New())
 	app.Use(logger.New())
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: getOrigins(),
-		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
-		AllowMethods: "GET, POST, PUT, DELETE, OPTIONS",
+		AllowOrigins:     getOrigins(),
+		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
+		AllowMethods:     "GET, POST, PUT, DELETE, OPTIONS",
+		AllowCredentials: true,
 	}))
 
 	// Initialize repositories
@@ -59,6 +59,21 @@ func main() {
 	messageRepo := postgres.NewMessageRepository(db.DB)
 	configRepo := postgres.NewConfigRepository(db.DB)
 	connectionRepo := postgres.NewConnectionRepository(db.DB)
+	userRepo := postgres.NewUserRepository(db.DB)
+	authSessionRepo := postgres.NewUserSessionRepository(db.DB) // Auth sessions
+	apiKeyRepo := postgres.NewAPIKeyRepository(db.DB)
+	auditLogRepo := postgres.NewAuditLogRepository(db.DB)
+
+	// Initialize audit service
+	auditService := audit.NewService(auditLogRepo)
+
+	// Initialize auth service
+	jwtSecret := os.Getenv("AGENTX_JWT_SECRET")
+	if jwtSecret == "" {
+		jwtSecret = "change-me-in-production" // Default for development
+		log.Println("WARNING: Using default JWT secret. Set AGENTX_JWT_SECRET in production!")
+	}
+	authService := auth.NewService(userRepo, authSessionRepo, apiKeyRepo, jwtSecret)
 
 	// Initialize provider registry
 	providerRegistry := providers.NewRegistry()
@@ -72,25 +87,13 @@ func main() {
 		connectionRepo,
 	)
 
-	// Initialize connections from database
-	ctx := context.Background()
-	if err := svc.Connection.InitializeConnections(ctx); err != nil {
-		log.Printf("Failed to initialize connections: %v", err)
-	} else {
-		log.Println("Successfully initialized connections from database")
-	}
+	// Note: Connection initialization is now per-user and happens on login
+	// We don't initialize all connections at startup anymore for security
 
-	// Setup routes
-	api.SetupRoutes(app, svc)
+	// Setup routes with authentication
+	api.SetupRoutesWithAuth(app, svc, authService, auditService)
 
-	// WebSocket upgrade middleware
-	app.Use("/ws", func(c *fiber.Ctx) error {
-		if websocket.IsWebSocketUpgrade(c) {
-			c.Locals("allowed", true)
-			return c.Next()
-		}
-		return fiber.ErrUpgradeRequired
-	})
+	// WebSocket authentication is handled in SetupRoutesWithAuth
 
 	// Start server
 	port := os.Getenv("AGENTX_PORT")
