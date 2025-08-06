@@ -10,6 +10,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/websocket/v2"
+	"github.com/agentx/agentx-backend/internal/api/middleware"
 	"github.com/agentx/agentx-backend/internal/api/models"
 	"github.com/agentx/agentx-backend/internal/providers"
 	"github.com/agentx/agentx-backend/internal/services"
@@ -94,8 +95,16 @@ func (h *UnifiedChatHandler) StreamChat(c *websocket.Conn) {
 	}
 }
 
-// StreamChatSSE handles SSE GET /api/v1/chat/stream
+// StreamChatSSE handles SSE POST /api/v1/chat/stream
 func (h *UnifiedChatHandler) StreamChatSSE(c *fiber.Ctx) error {
+	// Get user context
+	userContext := middleware.GetUserContext(c)
+	if userContext == nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Not authenticated",
+		})
+	}
+	
 	// Parse request from query params or body
 	var req models.UnifiedChatRequest
 	
@@ -116,6 +125,15 @@ func (h *UnifiedChatHandler) StreamChatSSE(c *fiber.Ctx) error {
 		}
 	}
 	
+	// Add user ID to preferences for proper provider lookup
+	if req.Preferences.ConnectionID != "" {
+		req.Preferences.ConnectionID = fmt.Sprintf("%s:%s", userContext.UserID.String(), req.Preferences.ConnectionID)
+	}
+	
+	// Debug logging
+	fmt.Printf("[StreamChatSSE] Request - SessionID: %s, ConnectionID: %s, Messages: %d\n", 
+		req.SessionID, req.Preferences.ConnectionID, len(req.Messages))
+	
 	// Set SSE headers
 	c.Set("Content-Type", "text/event-stream")
 	c.Set("Cache-Control", "no-cache")
@@ -125,21 +143,49 @@ func (h *UnifiedChatHandler) StreamChatSSE(c *fiber.Ctx) error {
 	// Get stream
 	stream, err := h.chatService.StreamChat(c.Context(), req)
 	if err != nil {
+		fmt.Printf("[StreamChatSSE] Error getting stream: %v\n", err)
 		fmt.Fprintf(c, "event: error\ndata: %s\n\n", err.Error())
 		return nil
 	}
 	
 	// Create a writer with flushing capability
 	c.Context().SetBodyStreamWriter(func(w *bufio.Writer) {
-		// Stream chunks as SSE
+		fmt.Printf("[StreamChatSSE] Starting stream writer\n")
+		chunkCount := 0
+		var lastMetadata *models.ChunkMetadata
+		// Generate a unique stream ID for this response
+		streamID := fmt.Sprintf("chatcmpl-%d", time.Now().UnixNano())
+		
+		// Stream chunks as SSE in OpenAI format
 		for chunk := range stream {
-			data, _ := json.Marshal(chunk)
-			fmt.Fprintf(w, "event: message\ndata: %s\n\n", string(data))
-			w.Flush()
+			chunkCount++
+			fmt.Printf("[StreamChatSSE] Received chunk %d: Type=%s, Content=%s\n", 
+				chunkCount, chunk.Type, chunk.Content)
+			
+			// Store metadata from meta chunks
+			if chunk.Type == "meta" && chunk.Metadata != nil {
+				lastMetadata = chunk.Metadata
+				continue // Don't send meta chunks to client
+			}
+			
+			// Use stored metadata if chunk doesn't have its own
+			if chunk.Metadata == nil && lastMetadata != nil {
+				chunk.Metadata = lastMetadata
+			}
+			
+			// Convert to OpenAI format for consistency
+			openAIChunk := h.convertToOpenAIStreamChunk(chunk, streamID)
+			if len(openAIChunk) > 0 {
+				data, _ := json.Marshal(openAIChunk)
+				fmt.Fprintf(w, "data: %s\n\n", string(data))
+				w.Flush()
+			}
 		}
 		
+		fmt.Printf("[StreamChatSSE] Stream completed with %d chunks\n", chunkCount)
+		
 		// Send done event
-		fmt.Fprintf(w, "event: done\ndata: {}\n\n")
+		fmt.Fprintf(w, "data: [DONE]\n\n")
 		w.Flush()
 	})
 	
@@ -209,9 +255,11 @@ func (h *UnifiedChatHandler) ChatCompletions(c *fiber.Ctx) error {
 		}
 		
 		c.Context().SetBodyStreamWriter(func(w *bufio.Writer) {
+			// Generate a unique stream ID for this response
+			streamID := fmt.Sprintf("chatcmpl-%d", time.Now().UnixNano())
 			for chunk := range stream {
 				// Convert to OpenAI format
-				openAIChunk := h.convertToOpenAIStreamChunk(chunk)
+				openAIChunk := h.convertToOpenAIStreamChunk(chunk, streamID)
 				data, _ := json.Marshal(openAIChunk)
 				fmt.Fprintf(w, "data: %s\n\n", string(data))
 				w.Flush()
@@ -262,14 +310,18 @@ func (h *UnifiedChatHandler) convertToOpenAIResponse(resp *models.UnifiedChatRes
 }
 
 // convertToOpenAIStreamChunk converts unified stream chunk to OpenAI format
-func (h *UnifiedChatHandler) convertToOpenAIStreamChunk(chunk models.UnifiedStreamChunk) map[string]interface{} {
+func (h *UnifiedChatHandler) convertToOpenAIStreamChunk(chunk models.UnifiedStreamChunk, streamID string) map[string]interface{} {
 	switch chunk.Type {
 	case "content":
+		model := "unknown"
+		if chunk.Metadata != nil {
+			model = fmt.Sprintf("%s/%s", chunk.Metadata.Provider, chunk.Metadata.Model)
+		}
 		return map[string]interface{}{
-			"id":      "chatcmpl-" + time.Now().Format("20060102150405"),
+			"id":      streamID,
 			"object":  "chat.completion.chunk",
 			"created": time.Now().Unix(),
-			"model":   fmt.Sprintf("%s/%s", chunk.Metadata.Provider, chunk.Metadata.Model),
+			"model":   model,
 			"choices": []map[string]interface{}{
 				{
 					"index": 0,
@@ -281,7 +333,7 @@ func (h *UnifiedChatHandler) convertToOpenAIStreamChunk(chunk models.UnifiedStre
 		}
 	case "done":
 		return map[string]interface{}{
-			"id":      "chatcmpl-" + time.Now().Format("20060102150405"),
+			"id":      streamID,
 			"object":  "chat.completion.chunk",
 			"created": time.Now().Unix(),
 			"choices": []map[string]interface{}{

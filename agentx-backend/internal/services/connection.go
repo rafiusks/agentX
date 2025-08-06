@@ -85,7 +85,12 @@ func (s *ConnectionService) ListConnections(ctx context.Context, userID uuid.UUI
 			if s.providerRegistry.Has(registryKey) {
 				withStatus.Status = "connected"
 			} else {
-				withStatus.Status = "disconnected"
+				// Try to initialize the provider if not in registry
+				if err := s.initializeProvider(userID, conn); err == nil {
+					withStatus.Status = "connected"
+				} else {
+					withStatus.Status = "disconnected"
+				}
 			}
 		} else {
 			withStatus.Status = "disabled"
@@ -118,12 +123,18 @@ func (s *ConnectionService) GetConnection(ctx context.Context, userID uuid.UUID,
 		},
 	}
 	
-	// Check connection status
+	// Check connection status (registry is now per-user)
 	if conn.Enabled {
-		if s.providerRegistry.Has(conn.ID) {
+		registryKey := fmt.Sprintf("%s:%s", userID.String(), conn.ID)
+		if s.providerRegistry.Has(registryKey) {
 			withStatus.Status = "connected"
 		} else {
-			withStatus.Status = "disconnected"
+			// Try to initialize the provider if not in registry
+			if err := s.initializeProvider(userID, conn); err == nil {
+				withStatus.Status = "connected"
+			} else {
+				withStatus.Status = "disconnected"
+			}
 		}
 	} else {
 		withStatus.Status = "disabled"

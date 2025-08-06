@@ -1,8 +1,8 @@
 import { User, Bot, Code, Cpu } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
-import { Message } from '../../stores/chat.store'
 import { useUIStore } from '../../stores/ui.store'
 import { FunctionCall } from '../FunctionCall'
+import type { Message } from '../../hooks/queries/useChats'
 
 interface ChatMessageProps {
   message: Message
@@ -82,9 +82,13 @@ export function ChatMessage({ message }: ChatMessageProps) {
           <div className="mt-2 pt-2 border-t border-border-subtle">
             <div className="flex items-center gap-2 text-xs text-foreground-muted">
               <Code size={12} />
-              <span>ID: {message.id.slice(0, 8)}</span>
-              <span>•</span>
-              <span>{new Date(message.timestamp).toLocaleTimeString()}</span>
+              <span>ID: {message.id ? message.id.slice(0, 8) : 'temp'}</span>
+              {(message.created_at) && (
+                <>
+                  <span>•</span>
+                  <span>{new Date(message.created_at).toLocaleTimeString()}</span>
+                </>
+              )}
               {message.isStreaming && (
                 <>
                   <span>•</span>

@@ -215,6 +215,8 @@ export const useSendStreamingMessage = () => {
 
   return useMutation({
     mutationFn: async ({ chat_id, content, connection_id }: SendMessageRequest) => {
+      console.log('[useSendStreamingMessage] Starting with:', { chat_id, content, connection_id });
+      
       // Add user message to cache
       const userMessage: Message = {
         id: `temp-${Date.now()}`,
@@ -236,15 +238,27 @@ export const useSendStreamingMessage = () => {
       // Get existing messages for context
       const existingMessages = queryClient.getQueryData<Message[]>(chatKeys.messages(chat_id)) || [];
       const messages = [
-        ...existingMessages.map(m => ({
-          role: m.role,
-          content: m.content
-        })),
+        ...existingMessages
+          .filter(m => {
+            // Exclude the temporary user message we just added
+            if (m.id === userMessage.id) return false;
+            // Only include messages with valid roles
+            return m.role && ['user', 'assistant', 'system'].includes(m.role) && m.content;
+          })
+          .map(m => ({
+            role: m.role,
+            content: m.content
+          })),
         { role: 'user', content }
       ];
       
       // Use the streaming endpoint
-      console.log('Sending streaming request with:', { session_id: chat_id, messages, connection_id });
+      console.log('[useSendStreamingMessage] Sending streaming request with:', { 
+        session_id: chat_id, 
+        messages_count: messages.length,
+        messages,
+        connection_id 
+      });
       
       return apiClient.stream(`/chat/stream`, {
         session_id: chat_id,
@@ -256,6 +270,12 @@ export const useSendStreamingMessage = () => {
         // Handle OpenAI-formatted streaming chunks
         console.log('Stream chunk:', chunk);
         
+        // Skip invalid chunks
+        if (!chunk || typeof chunk !== 'object') {
+          console.warn('Invalid chunk received:', chunk);
+          return;
+        }
+        
         if (chunk.choices && chunk.choices[0]) {
           const choice = chunk.choices[0];
           
@@ -264,23 +284,27 @@ export const useSendStreamingMessage = () => {
             appendToStream(choice.delta.content);
           }
           
-          // Handle finish
-          if (choice.finish_reason === 'stop') {
-            finishStreaming();
+          // Handle finish - only process if we have accumulated content
+          else if (choice.finish_reason === 'stop') {
+            const content = useStreamingStore.getState().streamBuffer;
+            if (content && content.trim()) {
+              // Add complete message to cache
+              const assistantMessage: Message = {
+                id: chunk.id || `msg-${Date.now()}`,
+                chat_id,
+                role: 'assistant',
+                content,
+                created_at: new Date().toISOString(),
+              };
+              
+              queryClient.setQueryData<Message[]>(
+                chatKeys.messages(chat_id),
+                (old) => [...(old || []), assistantMessage]
+              );
+            }
             
-            // Add complete message to cache
-            const assistantMessage: Message = {
-              id: chunk.id || `msg-${Date.now()}`,
-              chat_id,
-              role: 'assistant',
-              content: useStreamingStore.getState().streamBuffer,
-              created_at: new Date().toISOString(),
-            };
-            
-            queryClient.setQueryData<Message[]>(
-              chatKeys.messages(chat_id),
-              (old) => [...(old || []), assistantMessage]
-            );
+            // Clear streaming state after adding to cache
+            useStreamingStore.getState().clearStreaming();
           }
         }
       }, (error: Error) => {

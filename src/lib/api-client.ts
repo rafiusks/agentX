@@ -126,6 +126,7 @@ class ApiClient {
     onMessage?: (message: string) => void,
     onError?: (error: Error) => void
   ): Promise<void> {
+    console.log('[ApiClient.stream] Starting stream to:', endpoint, 'with data:', data);
     const token = localStorage.getItem('access_token');
     
     const response = await fetch(`${this.baseURL}${endpoint}`, {
@@ -140,8 +141,11 @@ class ApiClient {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ message: 'Stream request failed' }));
+      console.error('[ApiClient.stream] Stream request failed:', response.status, error);
       throw new ApiError(error.message || 'Stream failed', response.status, error);
     }
+    
+    console.log('[ApiClient.stream] Response OK, starting to read stream');
 
     const reader = response.body?.getReader();
     const decoder = new TextDecoder();
@@ -162,13 +166,16 @@ class ApiClient {
           if (line.startsWith('data: ')) {
             const data = line.slice(6);
             if (data === '[DONE]') {
+              console.log('[ApiClient.stream] Received [DONE], ending stream');
               return;
             }
             try {
               const parsed = JSON.parse(data);
+              console.log('[ApiClient.stream] Parsed chunk:', parsed);
               onMessage?.(parsed);
             } catch (e) {
               // If not JSON, pass raw data
+              console.log('[ApiClient.stream] Raw data chunk:', data);
               onMessage?.(data);
             }
           }

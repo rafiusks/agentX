@@ -35,9 +35,19 @@ func NewRequestRouter(providers *providers.Registry, configService *ConfigServic
 func (r *RequestRouter) RouteRequest(ctx context.Context, req models.UnifiedChatRequest) (string, string, error) {
 	// Handle connection_id if specified
 	if req.Preferences.ConnectionID != "" {
+		fmt.Printf("[RequestRouter.RouteRequest] Looking for connection: %s\n", req.Preferences.ConnectionID)
+		
+		// List all available providers
+		allProviders := r.providers.GetAll()
+		fmt.Printf("[RequestRouter.RouteRequest] Available providers: %v\n", allProviders)
+		for key := range allProviders {
+			fmt.Printf("[RequestRouter.RouteRequest] Provider key: %s\n", key)
+		}
+		
 		// Use the specific connection directly
 		provider := r.providers.Get(req.Preferences.ConnectionID)
 		if provider == nil {
+			fmt.Printf("[RequestRouter.RouteRequest] Provider not found for connection: %s\n", req.Preferences.ConnectionID)
 			return "", "", fmt.Errorf("connection %s not found or not active", req.Preferences.ConnectionID)
 		}
 		

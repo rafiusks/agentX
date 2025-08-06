@@ -9,6 +9,7 @@ import (
 	"github.com/agentx/agentx-backend/internal/api/middleware"
 	"github.com/agentx/agentx-backend/internal/audit"
 	"github.com/agentx/agentx-backend/internal/auth"
+	"github.com/agentx/agentx-backend/internal/services"
 )
 
 // LoginRequest represents a login request
@@ -69,7 +70,7 @@ type UserResponse struct {
 }
 
 // Login handles user login
-func Login(authService *auth.Service, auditService *audit.Service) fiber.Handler {
+func Login(authService *auth.Service, auditService *audit.Service, connectionService *services.ConnectionService) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		var req LoginRequest
 		if err := c.BodyParser(&req); err != nil {
@@ -126,6 +127,14 @@ func Login(authService *auth.Service, auditService *audit.Service) fiber.Handler
 		event.Result = "success"
 		event.Metadata["email"] = user.Email
 		auditService.Log(c.Context(), event)
+
+		// Initialize user connections after successful login
+		if connectionService != nil {
+			if err := connectionService.InitializeUserConnections(c.Context(), user.ID); err != nil {
+				// Log error but don't fail login
+				c.App().Config().ErrorHandler(c, err)
+			}
+		}
 
 		// Set cookies for web clients
 		c.Cookie(&fiber.Cookie{

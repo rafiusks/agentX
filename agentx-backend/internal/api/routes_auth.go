@@ -29,7 +29,7 @@ func SetupRoutesWithAuth(app *fiber.App, svc *services.Services, authService *au
 	
 	// Authentication endpoints
 	auth := api.Group("/auth")
-	auth.Post("/login", middleware.AuthRateLimit(), handlers.Login(authService, auditService))
+	auth.Post("/login", middleware.AuthRateLimit(), handlers.Login(authService, auditService, svc.Connection))
 	auth.Post("/signup", middleware.SignupRateLimit(), handlers.Signup(authService, auditService))
 	auth.Post("/refresh", handlers.RefreshToken(authService))
 	auth.Post("/logout", middleware.AuthRequired(authService), handlers.Logout(authService, auditService))

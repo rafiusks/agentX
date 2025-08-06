@@ -117,15 +117,21 @@ func (s *UnifiedChatService) Chat(ctx context.Context, req models.UnifiedChatReq
 
 // StreamChat handles a unified streaming chat request
 func (s *UnifiedChatService) StreamChat(ctx context.Context, req models.UnifiedChatRequest) (<-chan models.UnifiedStreamChunk, error) {
+	fmt.Printf("[UnifiedChatService.StreamChat] Starting with ConnectionID: %s\n", req.Preferences.ConnectionID)
+	
 	// 1. Route the request
 	providerID, modelID, err := s.router.RouteRequest(ctx, req)
 	if err != nil {
+		fmt.Printf("[UnifiedChatService.StreamChat] Routing failed: %v\n", err)
 		return s.createErrorStream(err, "routing_failed"), nil
 	}
+	
+	fmt.Printf("[UnifiedChatService.StreamChat] Routed to provider: %s, model: %s\n", providerID, modelID)
 	
 	// 2. Get the provider
 	provider := s.providers.Get(providerID)
 	if provider == nil {
+		fmt.Printf("[UnifiedChatService.StreamChat] Provider not found: %s\n", providerID)
 		return s.createErrorStream(fmt.Errorf("provider not found"), providerID), nil
 	}
 	
@@ -140,16 +146,22 @@ func (s *UnifiedChatService) StreamChat(ctx context.Context, req models.UnifiedC
 	providerReq.Model = modelID
 	
 	// 5. Start streaming from provider
+	fmt.Printf("[UnifiedChatService.StreamChat] Calling provider.StreamComplete with model: %s\n", providerReq.Model)
 	providerStream, err := provider.StreamComplete(ctx, providerReq)
 	if err != nil {
+		fmt.Printf("[UnifiedChatService.StreamChat] Provider stream error: %v\n", err)
 		return s.createErrorStream(err, providerID), nil
 	}
+	
+	fmt.Printf("[UnifiedChatService.StreamChat] Provider stream created successfully\n")
 	
 	// 6. Create unified stream
 	unifiedStream := make(chan models.UnifiedStreamChunk)
 	
 	go func() {
 		defer close(unifiedStream)
+		
+		fmt.Printf("[UnifiedChatService.StreamChat] Goroutine started\n")
 		
 		// Send initial metadata
 		unifiedStream <- models.UnifiedStreamChunk{
@@ -160,12 +172,19 @@ func (s *UnifiedChatService) StreamChat(ctx context.Context, req models.UnifiedC
 			},
 		}
 		
+		fmt.Printf("[UnifiedChatService.StreamChat] Sent metadata chunk\n")
+		
 		// Process provider chunks
 		var fullContent string
+		chunkCount := 0
 		for chunk := range providerStream {
+			chunkCount++
+			fmt.Printf("[UnifiedChatService.StreamChat] Processing provider chunk %d\n", chunkCount)
+			
 			// Normalize chunk
 			unified, err := adapter.NormalizeStreamChunk(chunk)
 			if err != nil {
+				fmt.Printf("[UnifiedChatService.StreamChat] Error normalizing chunk: %v\n", err)
 				continue
 			}
 			
@@ -176,6 +195,8 @@ func (s *UnifiedChatService) StreamChat(ctx context.Context, req models.UnifiedC
 			
 			unifiedStream <- *unified
 		}
+		
+		fmt.Printf("[UnifiedChatService.StreamChat] Provider stream ended after %d chunks\n", chunkCount)
 		
 		// Save messages if session exists
 		if req.SessionID != "" {
