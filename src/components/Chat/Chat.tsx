@@ -10,6 +10,8 @@ import { ChatSidebar } from './ChatSidebar'
 
 export function Chat() {
   const [input, setInput] = useState('')
+  const [isCreatingSession, setIsCreatingSession] = useState(false)
+  const [pendingMessage, setPendingMessage] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   
@@ -19,7 +21,8 @@ export function Chat() {
     setCurrentChatId,
     setCurrentConnectionId,
     composerDraft,
-    setComposerDraft
+    setComposerDraft,
+    createSession
   } = useChatStore()
   
   const { mode } = useUIStore()
@@ -40,7 +43,7 @@ export function Chat() {
         setCurrentChatId(firstChatId)
       }
     }
-  }, [chats, currentChatId])
+  }, [chats, currentChatId, setCurrentChatId])
   
   // Set connection from default if not set
   useEffect(() => {
@@ -59,10 +62,53 @@ export function Chat() {
     setInput(composerDraft)
   }, [composerDraft])
 
+  // Submit pending message after session creation
+  useEffect(() => {
+    if (currentChatId && pendingMessage && !isCreatingSession && currentConnectionId) {
+      const messageToSend = pendingMessage
+      setPendingMessage(null)
+      
+      // Send the pending message
+      sendMessageMutation.mutate({
+        chat_id: currentChatId,
+        content: messageToSend,
+        connection_id: currentConnectionId,
+        stream: true
+      }, {
+        onError: (error) => {
+          console.error('Failed to send message:', error)
+          // Restore input on error
+          setInput(messageToSend)
+          setComposerDraft(messageToSend)
+        }
+      })
+    }
+  }, [currentChatId, pendingMessage, isCreatingSession, currentConnectionId, sendMessageMutation, setComposerDraft])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!input.trim() || isStreaming || !currentChatId || !currentConnectionId) return
+    if (!input.trim() || isStreaming || !currentConnectionId || isCreatingSession) return
+    
+    // Create a session if we don't have one
+    if (!currentChatId) {
+      setPendingMessage(messageContent)
+      setIsCreatingSession(true)
+      try {
+        await createSession()
+        // The session creation will update currentChatId via the store
+        // The useEffect will pick up the pending message and send it
+      } catch (error) {
+        console.error('Failed to create session:', error)
+        setPendingMessage(null)
+        // Restore input on error
+        setInput(messageContent)
+        setComposerDraft(messageContent)
+      } finally {
+        setIsCreatingSession(false)
+      }
+      return
+    }
     
     const messageContent = input.trim()
     setInput('')
@@ -159,8 +205,8 @@ export function Chat() {
                 value={input}
                 onChange={handleInputChange}
                 onKeyDown={handleKeyDown}
-                placeholder={isStreaming ? "Waiting for response..." : "Type a message..."}
-                disabled={isStreaming}
+                placeholder={isStreaming ? "Waiting for response..." : isCreatingSession ? "Creating session..." : "Type a message..."}
+                disabled={isStreaming || isCreatingSession}
                 className="w-full px-4 py-3 pr-12 bg-background-primary border border-border-default 
                          rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-accent-primary 
                          text-foreground-primary placeholder-foreground-tertiary
@@ -169,13 +215,13 @@ export function Chat() {
               />
               <button
                 type="submit"
-                disabled={!input.trim() || isStreaming}
+                disabled={!input.trim() || isStreaming || isCreatingSession}
                 className="absolute bottom-3 right-3 p-2 rounded-md
                          bg-accent-primary text-white disabled:opacity-50 
                          disabled:cursor-not-allowed hover:bg-accent-primary-hover
                          transition-colors"
               >
-                {isStreaming ? (
+                {isStreaming || isCreatingSession ? (
                   <Loader2 size={18} className="animate-spin" />
                 ) : (
                   <Send size={18} />

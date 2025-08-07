@@ -1,15 +1,15 @@
 # AgentX - AI IDE for Agentic Software Development
 
 <div align="center">
-  <img src="https://img.shields.io/badge/Rust-000000?style=for-the-badge&logo=rust&logoColor=white" alt="Rust" />
+  <img src="https://img.shields.io/badge/Go-00ADD8?style=for-the-badge&logo=go&logoColor=white" alt="Go" />
   <img src="https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" alt="React" />
-  <img src="https://img.shields.io/badge/Tauri-FFC131?style=for-the-badge&logo=tauri&logoColor=white" alt="Tauri" />
+  <img src="https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL" />
   <img src="https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
 </div>
 
 ## 🚀 Overview
 
-AgentX is a beautiful standalone desktop application that unifies access to multiple AI models (OpenAI, Anthropic, Ollama) in a single, elegant interface inspired by Termius. Built with Tauri for native performance and a gorgeous React frontend.
+AgentX is a powerful web application that unifies access to multiple AI models (OpenAI, Anthropic, Ollama) in a single, elegant interface. Built with a Go backend for high performance and a React frontend for a modern user experience.
 
 ## ✨ Features
 
@@ -22,28 +22,42 @@ AgentX is a beautiful standalone desktop application that unifies access to mult
 
 ## 🏃‍♂️ Quick Start
 
-### Desktop App (Recommended)
+### Prerequisites
 
 1. **Install dependencies**
    ```bash
-   # Install Rust
-   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+   # Install Go (1.21+)
+   # Visit https://go.dev/dl/
    
    # Install Node.js (v18+)
    # Visit https://nodejs.org
+   
+   # Install Docker (for PostgreSQL)
+   # Visit https://www.docker.com/get-started
    ```
 
 2. **Clone and setup**
    ```bash
    git clone https://github.com/community/agentx
    cd agentx
-   npm install
    ```
 
-3. **Run the desktop app**
+3. **Start the services**
    ```bash
-   npm run tauri:dev
+   # Start PostgreSQL and backend
+   docker-compose up -d
+   
+   # Or run backend locally
+   cd agentx-backend
+   go run cmd/server/main.go
+   
+   # In another terminal, start frontend
+   npm install
+   npm run dev
    ```
+
+4. **Open the app**
+   Navigate to http://localhost:1420 in your browser
 
 ### Terminal Mode
 

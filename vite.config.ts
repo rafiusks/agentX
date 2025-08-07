@@ -6,16 +6,9 @@ import path from "path";
 export default defineConfig(async () => ({
   plugins: [react()],
 
-  // Vite options tailored for Tauri development
   clearScreen: false,
-  // Tauri expects a fixed port, fail if that port is not available
   server: {
     port: 1420,
-    strictPort: true,
-    watch: {
-      // 3. tell vite to ignore watching `src-tauri`
-      ignored: ["**/src-tauri/**"],
-    },
   },
   
   // Path alias resolution

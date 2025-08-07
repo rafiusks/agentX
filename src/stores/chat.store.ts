@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { apiClient } from '../lib/api-client'
 
 /**
  * Chat Store - Only handles client-side chat UI state
@@ -25,6 +26,7 @@ interface ChatUIState {
   toggleChatHistory: () => void
   setSelectedMessageId: (messageId: string | null) => void
   clearChatUI: () => void
+  createSession: () => Promise<void>
 }
 
 export const useChatStore = create<ChatUIState>()(
@@ -58,6 +60,24 @@ export const useChatStore = create<ChatUIState>()(
         composerDraft: '',
         selectedMessageId: null,
       }),
+      
+      createSession: async () => {
+        try {
+          // Create a new session through the API
+          const response = await apiClient.post('/sessions', {
+            title: 'New Chat'
+          })
+          
+          // Set the new session as current
+          if (response && response.ID) {
+            set({ currentChatId: response.ID })
+          } else if (response && response.id) {
+            set({ currentChatId: response.id })
+          }
+        } catch (error) {
+          console.error('Failed to create session:', error)
+        }
+      },
     }),
     {
       name: 'agentx-chat-ui',

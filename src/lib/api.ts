@@ -1,4 +1,4 @@
-// AgentX API Client - Replaces Tauri IPC with HTTP/WebSocket communication
+// AgentX API Client - HTTP/WebSocket communication with backend
 
 export interface Provider {
   id: string;
@@ -270,36 +270,3 @@ export class AgentXAPI {
 
 // Create a singleton instance
 export const api = new AgentXAPI();
-
-// Migration helpers for replacing Tauri IPC calls
-export const tauriMigration = {
-  // Replace: await invoke('get_providers')
-  getProviders: () => api.getProviders(),
-  
-  // Replace: await invoke('create_session', { title })
-  createSession: (title?: string) => api.createSession(title),
-  
-  // Replace: await invoke('send_message', { sessionId, message, ... })
-  sendMessage: (args: any) => api.sendMessage(
-    args.sessionId,
-    args.message,
-    args.providerId,
-    args.model,
-    args
-  ),
-  
-  // Replace: await invoke('discover_models', { providerId })
-  discoverModels: (providerId: string) => api.discoverModels(providerId),
-  
-  // Replace: Tauri event listeners for streaming
-  streamMessage: (args: any, onChunk: (chunk: any) => void, onComplete: () => void, onError: (err: string) => void) => {
-    return api.streamMessage(
-      args.sessionId,
-      args.message,
-      args.providerId,
-      args.model,
-      args,
-      { onChunk, onComplete, onError }
-    );
-  },
-};

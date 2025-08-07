@@ -1,0 +1,22 @@
+{
+  "mcpServers": {
+    "postgres-agentx": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-postgres-server"
+      ],
+      "env": {
+        "DATABASE_URL": "postgresql://agentx:agentx@localhost:5432/agentx"
+      }
+    },
+    "postgres-agentx-deprecated": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://agentx:agentx@localhost:5432/agentx"
+      ]
+    }
+  }
+}

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-AgentX is evolving from a unified ChatGPT/Claude UI into a full AI IDE for agentic software development. Built in Rust for performance, it follows an incremental development path:
+AgentX is evolving from a unified ChatGPT/Claude UI into a full AI IDE for agentic software development. The project consists of a React frontend and a Go backend server, with an optional Rust terminal UI:
 
 **Base Layer** (Current Focus): A fast, elegant chat interface for multiple LLM providers:
 - Support for OpenAI, Anthropic, and local models (Ollama, llama.cpp)
@@ -17,18 +17,17 @@ AgentX is evolving from a unified ChatGPT/Claude UI into a full AI IDE for agent
 ## Architecture
 
 ### High-Level Structure
-- **Terminal UI System**: Three-layer progressive interface (Simple → Mission Control → Pro Mode)
-- **Agent Orchestration**: Task decomposition and coordination between external AI services
-- **Intelligence Interfaces**: Abstractions for integrating with external AI providers
-- **Infrastructure**: NATS messaging, vector databases, and execution sandboxes
+- **Frontend (React)**: Modern web UI with chat interface and provider management
+- **Backend (Go)**: REST API server with WebSocket support for streaming
+- **Terminal UI (Rust)**: Optional standalone terminal interface (in src-tauri-archived/)
+- **Database**: PostgreSQL for persistence
 - **External AI Integration**: MCP servers, local LLMs (Ollama, llama.cpp), and cloud APIs
 
 ### Key Modules
-- `src/ui/`: Terminal UI with Ratatui (simple and terminal layers)
-- `src/agents/`: Agent orchestration and coordination logic
-- `src/intelligence/`: Interfaces and patterns for external AI integration
-- `src/infrastructure/`: Core systems (messaging, storage, execution)
-- `src/app/`: Main application logic and event handling
+- `src/`: React frontend components and UI
+- `agentx-backend/`: Go backend server with API handlers
+- `src-tauri-archived/`: Archived Rust terminal UI code (optional reference)
+- `docker-compose.yml`: Docker services for PostgreSQL and backend
 
 ### AI Architecture Philosophy
 AgentX acts as a conductor, not a performer. The intelligence module provides:
@@ -65,32 +64,46 @@ AgentX acts as a conductor, not a performer. The intelligence module provides:
 
 ## Development Commands
 
-### Building
+### Building & Running
+
+#### Backend (Go)
 ```bash
-cargo build              # Debug build
-cargo build --release    # Optimized release build
+cd agentx-backend
+go mod download
+go run cmd/server/main.go
 ```
 
-### Running
+#### Frontend (React)
 ```bash
-cargo run                # Run the application
-cargo run --example terminal_ui_demo    # Run terminal UI demo
-cargo run --example ai_features_demo    # Run AI features demo
-cargo run --example orchestrator_demo   # Run orchestrator demo
+npm install
+npm run dev
+```
+
+#### Docker Services
+```bash
+docker-compose up -d  # Start PostgreSQL and backend
 ```
 
 ### Testing
 ```bash
-cargo test               # Run all tests
-cargo test --lib         # Run library tests only
-cargo test --examples    # Test examples compilation
+# Frontend
+npm test
+
+# Backend
+cd agentx-backend
+go test ./...
 ```
 
 ### Code Quality
 ```bash
-cargo fmt                # Format code
-cargo clippy             # Run linter
-cargo check              # Quick compilation check
+# Frontend
+npm run lint
+npm run type-check
+
+# Backend
+cd agentx-backend
+go fmt ./...
+go vet ./...
 ```
 
 ## Current State vs Future Vision
@@ -111,11 +124,12 @@ cargo check              # Quick compilation check
 5. Basic terminal command execution
 
 ### Architecture Reality Check
-The project has two parallel UI implementations:
-1. **Simple layer** (currently active): Basic prompt/response interface
-2. **Terminal layer** (built, not integrated): Warp-inspired blocks, command palette
+The project now has:
+1. **Web UI** (active): React-based chat interface with provider management
+2. **Go Backend** (active): RESTful API with WebSocket streaming
+3. **Terminal UI** (archived): Rust-based terminal interface for future reference
 
-The immediate task is to create a working chat interface before evolving to the full terminal experience.
+The system is fully functional with the web UI and Go backend.
 
 ### External AI Integration Strategy
 AgentX will create a symbiotic relationship with external AI services:
@@ -157,11 +171,11 @@ To complete the integration:
 - Lock-free data structures where possible
 
 ## Dependencies to Note
-- **ratatui**: Terminal UI framework
-- **crossterm**: Terminal manipulation
-- **tokio**: Async runtime
-- **serde**: Serialization
-- **anyhow/thiserror**: Error handling
+- **React**: Frontend framework
+- **Vite**: Build tool and dev server
+- **Go Fiber**: Backend web framework
+- **PostgreSQL**: Database
+- **Docker**: Container orchestration
 
 ## External AI Service Integration
 

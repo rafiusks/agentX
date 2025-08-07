@@ -70,6 +70,23 @@ services:
     networks:
       - agentx-network
 
+  # MCP PostgreSQL Server (for AI assistance)
+  mcp-postgres:
+    image: node:20-alpine
+    container_name: agentx-mcp-postgres
+    command: >
+      sh -c "npm install -g mcp-postgres-server @modelcontextprotocol/server-postgres &&
+             npx mcp-postgres-server ||
+             npx @modelcontextprotocol/server-postgres postgresql://agentx:agentx@postgres:5432/agentx"
+    environment:
+      DATABASE_URL: postgresql://agentx:agentx@postgres:5432/agentx
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - agentx-network
+    restart: unless-stopped
+
 networks:
   agentx-network:
     driver: bridge

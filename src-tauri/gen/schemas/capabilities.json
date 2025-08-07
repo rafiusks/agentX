@@ -1,1 +1,0 @@
-{"default":{"identifier":"default","description":"Default capabilities for AgentX","local":true,"windows":["main"],"permissions":[{"identifier":"core:default","allow":[]},{"identifier":"core:event:default","allow":[]},{"identifier":"core:window:default","allow":[]},{"identifier":"shell:default","allow":[]}],"platforms":["macOS","windows","linux"]}}
