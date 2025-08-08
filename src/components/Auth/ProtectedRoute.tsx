@@ -29,7 +29,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        <Loader2 className="h-8 w-8 animate-spin text-accent-blue" />
       </div>
     );
   }
@@ -49,10 +49,10 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
       return (
         <div className="min-h-screen flex items-center justify-center">
           <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+            <h2 className="text-2xl font-bold text-foreground-primary mb-2">
               Access Denied
             </h2>
-            <p className="text-gray-600 dark:text-gray-400">
+            <p className="text-foreground-secondary">
               You need {requiredRole} privileges to access this page.
             </p>
           </div>

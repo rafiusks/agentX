@@ -107,7 +107,7 @@ export const Signup: React.FC = () => {
       return {
         strength: 0,
         label: 'Invalid',
-        color: 'bg-red-500',
+        color: 'bg-accent-red',
         isValid: false,
         requirements: validation.errors
       };
@@ -120,10 +120,10 @@ export const Signup: React.FC = () => {
     if (/[0-9]/.test(password)) strength++;
     if (/[^a-zA-Z0-9]/.test(password)) strength++;
 
-    if (strength <= 2) return { strength: 1, label: 'Weak', color: 'bg-yellow-500', isValid: true, requirements: [] };
-    if (strength === 3) return { strength: 2, label: 'Fair', color: 'bg-orange-500', isValid: true, requirements: [] };
-    if (strength === 4) return { strength: 3, label: 'Good', color: 'bg-green-500', isValid: true, requirements: [] };
-    return { strength: 4, label: 'Strong', color: 'bg-green-600', isValid: true, requirements: [] };
+    if (strength <= 2) return { strength: 1, label: 'Weak', color: 'bg-accent-yellow', isValid: true, requirements: [] };
+    if (strength === 3) return { strength: 2, label: 'Fair', color: 'bg-accent-yellow', isValid: true, requirements: [] };
+    if (strength === 4) return { strength: 3, label: 'Good', color: 'bg-accent-green', isValid: true, requirements: [] };
+    return { strength: 4, label: 'Strong', color: 'bg-accent-green', isValid: true, requirements: [] };
   };
 
   const passwordStrength = formData.password ? getPasswordStrength(formData.password) : null;
@@ -150,17 +150,17 @@ export const Signup: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
-      <Card className="w-full max-w-md p-8 space-y-6">
+    <div className="min-h-screen flex items-center justify-center bg-background-primary py-12 px-4">
+      <Card className="w-full max-w-md p-8 space-y-6 bg-background-secondary border-border-subtle">
         <div>
-          <h2 className="text-center text-3xl font-extrabold text-gray-900 dark:text-white">
+          <h2 className="text-center text-3xl font-semibold text-foreground-primary">
             Create your account
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
+          <p className="mt-2 text-center text-sm text-foreground-secondary">
             Or{' '}
             <Link
               to="/login"
-              className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300"
+              className="font-medium text-accent-blue hover:text-accent-blue/80 transition-colors"
             >
               sign in to existing account
             </Link>
@@ -169,13 +169,13 @@ export const Signup: React.FC = () => {
         
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           {error && (
-            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-4">
+            <div className="bg-accent-red/10 border border-accent-red/30 rounded-lg p-4">
               <div className="flex">
                 <div className="flex-shrink-0">
-                  <AlertCircle className="h-5 w-5 text-red-400" />
+                  <AlertCircle className="h-5 w-5 text-accent-red" />
                 </div>
                 <div className="ml-3">
-                  <p className="text-sm text-red-800 dark:text-red-400">
+                  <p className="text-sm text-accent-red">
                     {error}
                   </p>
                 </div>
@@ -194,11 +194,11 @@ export const Signup: React.FC = () => {
                 required
                 value={formData.email}
                 onChange={handleChange}
-                className={`mt-1 ${validationErrors.email ? 'border-red-500' : ''}`}
+                className={`mt-1 ${validationErrors.email ? 'border-accent-red' : ''}`}
                 placeholder="you@example.com"
               />
               {validationErrors.email && (
-                <p className="mt-1 text-sm text-red-600">{validationErrors.email}</p>
+                <p className="mt-1 text-sm text-accent-red">{validationErrors.email}</p>
               )}
             </div>
 
@@ -228,12 +228,12 @@ export const Signup: React.FC = () => {
                   required
                   value={formData.password}
                   onChange={handleChange}
-                  className={`pr-10 ${validationErrors.password ? 'border-red-500' : ''}`}
+                  className={`pr-10 ${validationErrors.password ? 'border-accent-red' : ''}`}
                   placeholder="••••••••"
                 />
                 <button
                   type="button"
-                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-foreground-tertiary hover:text-foreground-secondary transition-colors"
                   onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? (
@@ -244,23 +244,23 @@ export const Signup: React.FC = () => {
                 </button>
               </div>
               {validationErrors.password && (
-                <p className="mt-1 text-sm text-red-600">{validationErrors.password}</p>
+                <p className="mt-1 text-sm text-accent-red">{validationErrors.password}</p>
               )}
               {passwordStrength && formData.password && (
                 <div className="mt-2">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs text-gray-600 dark:text-gray-400">Password strength</span>
+                    <span className="text-xs text-foreground-secondary">Password strength</span>
                     <span className={`text-xs font-medium ${
-                      passwordStrength.label === 'Invalid' ? 'text-red-600' :
-                      passwordStrength.label === 'Weak' ? 'text-yellow-600' :
-                      passwordStrength.label === 'Fair' ? 'text-orange-600' :
-                      passwordStrength.label === 'Good' ? 'text-green-600' :
-                      'text-green-600'
+                      passwordStrength.label === 'Invalid' ? 'text-accent-red' :
+                      passwordStrength.label === 'Weak' ? 'text-accent-yellow' :
+                      passwordStrength.label === 'Fair' ? 'text-accent-yellow' :
+                      passwordStrength.label === 'Good' ? 'text-accent-green' :
+                      'text-accent-green'
                     }`}>
                       {passwordStrength.label}
                     </span>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-1.5">
+                  <div className="w-full bg-background-tertiary rounded-full h-1.5">
                     <div
                       className={`h-1.5 rounded-full transition-all ${passwordStrength.color}`}
                       style={{ width: `${(passwordStrength.strength / 4) * 100}%` }}
@@ -268,8 +268,8 @@ export const Signup: React.FC = () => {
                   </div>
                   {passwordStrength.requirements.length > 0 && (
                     <div className="mt-2">
-                      <p className="text-xs text-red-600 dark:text-red-400 mb-1">Requirements:</p>
-                      <ul className="text-xs text-red-600 dark:text-red-400 space-y-0.5">
+                      <p className="text-xs text-accent-red mb-1">Requirements:</p>
+                      <ul className="text-xs text-accent-red space-y-0.5">
                         {passwordStrength.requirements.map((req, index) => (
                           <li key={index} className="flex items-center">
                             <span className="mr-1">•</span>
@@ -294,12 +294,12 @@ export const Signup: React.FC = () => {
                   required
                   value={formData.confirmPassword}
                   onChange={handleChange}
-                  className={`pr-10 ${validationErrors.confirmPassword ? 'border-red-500' : ''}`}
+                  className={`pr-10 ${validationErrors.confirmPassword ? 'border-accent-red' : ''}`}
                   placeholder="••••••••"
                 />
                 <button
                   type="button"
-                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-foreground-tertiary hover:text-foreground-secondary transition-colors"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                 >
                   {showConfirmPassword ? (
@@ -310,10 +310,10 @@ export const Signup: React.FC = () => {
                 </button>
               </div>
               {validationErrors.confirmPassword && (
-                <p className="mt-1 text-sm text-red-600">{validationErrors.confirmPassword}</p>
+                <p className="mt-1 text-sm text-accent-red">{validationErrors.confirmPassword}</p>
               )}
               {formData.confirmPassword && formData.password === formData.confirmPassword && (
-                <div className="mt-1 flex items-center text-green-600">
+                <div className="mt-1 flex items-center text-accent-green">
                   <CheckCircle className="h-4 w-4 mr-1" />
                   <span className="text-sm">Passwords match</span>
                 </div>
@@ -327,11 +327,11 @@ export const Signup: React.FC = () => {
               name="terms"
               type="checkbox"
               required
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              className="h-4 w-4 text-accent-blue focus:ring-accent-blue/50 border-border-subtle rounded accent-accent-blue"
             />
-            <label htmlFor="terms" className="ml-2 block text-sm text-gray-900 dark:text-gray-300">
+            <label htmlFor="terms" className="ml-2 block text-sm text-foreground-primary">
               I agree to the{' '}
-              <a href="#" className="text-blue-600 hover:text-blue-500 dark:text-blue-400">
+              <a href="#" className="text-accent-blue hover:text-accent-blue/80 transition-colors">
                 Terms and Conditions
               </a>
             </label>

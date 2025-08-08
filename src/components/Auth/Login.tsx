@@ -43,17 +43,17 @@ export const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
-      <Card className="w-full max-w-md p-8 space-y-6">
+    <div className="min-h-screen flex items-center justify-center bg-background-primary py-12 px-4">
+      <Card className="w-full max-w-md p-8 space-y-6 bg-background-secondary border-border-subtle">
         <div>
-          <h2 className="text-center text-3xl font-extrabold text-gray-900 dark:text-white">
+          <h2 className="text-center text-3xl font-semibold text-foreground-primary">
             Sign in to AgentX
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
+          <p className="mt-2 text-center text-sm text-foreground-secondary">
             Or{' '}
             <Link
               to="/signup"
-              className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300"
+              className="font-medium text-accent-blue hover:text-accent-blue/80 transition-colors"
             >
               create a new account
             </Link>
@@ -62,13 +62,13 @@ export const Login: React.FC = () => {
         
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           {error && (
-            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-4">
+            <div className="bg-accent-red/10 border border-accent-red/30 rounded-lg p-4">
               <div className="flex">
                 <div className="flex-shrink-0">
-                  <AlertCircle className="h-5 w-5 text-red-400" />
+                  <AlertCircle className="h-5 w-5 text-accent-red" />
                 </div>
                 <div className="ml-3">
-                  <p className="text-sm text-red-800 dark:text-red-400">
+                  <p className="text-sm text-accent-red">
                     {error}
                   </p>
                 </div>
@@ -108,7 +108,7 @@ export const Login: React.FC = () => {
                 />
                 <button
                   type="button"
-                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-foreground-tertiary hover:text-foreground-secondary transition-colors"
                   onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? (
@@ -127,15 +127,15 @@ export const Login: React.FC = () => {
                 id="remember-me"
                 name="remember-me"
                 type="checkbox"
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                className="h-4 w-4 text-accent-blue focus:ring-accent-blue/50 border-border-default rounded accent-accent-blue"
               />
-              <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900 dark:text-gray-300">
+              <label htmlFor="remember-me" className="ml-2 block text-sm text-foreground-primary">
                 Remember me
               </label>
             </div>
 
             <div className="text-sm">
-              <a href="#" className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300">
+              <a href="#" className="font-medium text-accent-blue hover:text-accent-blue/80 transition-colors">
                 Forgot your password?
               </a>
             </div>

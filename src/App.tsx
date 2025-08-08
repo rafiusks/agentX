@@ -130,7 +130,7 @@ function App() {
       {/* Header */}
       <header className="flex items-center justify-between px-6 py-4 border-b border-border-subtle glass">
         <div className="flex items-center gap-4">
-          <h1 className="text-xl font-semibold">AgentX</h1>
+          <h1 className="text-title-3">AgentX</h1>
           {mode !== 'simple' && (
             <TabBar currentTab={currentTab} onTabChange={setCurrentTab} />
           )}
@@ -171,7 +171,7 @@ function App() {
         {currentTab === 'agents' && (
           <div className="flex items-center justify-center h-full">
             <div className="text-center space-y-4">
-              <h2 className="text-2xl font-semibold text-foreground-secondary">
+              <h2 className="text-title-2 text-foreground-secondary">
                 Agent Orchestration
               </h2>
               <p className="text-foreground-muted">

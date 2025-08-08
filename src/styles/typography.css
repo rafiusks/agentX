@@ -1,0 +1,77 @@
+/* Typography system following Apple's design principles */
+
+@layer utilities {
+  /* Display styles */
+  .text-display-large {
+    @apply text-6xl font-semibold tracking-tight leading-none;
+  }
+  
+  .text-display {
+    @apply text-5xl font-semibold tracking-tight leading-tight;
+  }
+  
+  /* Title styles */
+  .text-title-1 {
+    @apply text-3xl font-semibold tracking-tight;
+  }
+  
+  .text-title-2 {
+    @apply text-2xl font-semibold;
+  }
+  
+  .text-title-3 {
+    @apply text-xl font-semibold;
+  }
+  
+  /* Heading styles */
+  .text-headline {
+    @apply text-lg font-semibold;
+  }
+  
+  .text-subheadline {
+    @apply text-sm font-semibold uppercase tracking-wide;
+  }
+  
+  /* Body styles */
+  .text-body-large {
+    @apply text-base font-normal leading-relaxed;
+  }
+  
+  .text-body {
+    @apply text-base font-normal;
+  }
+  
+  .text-body-emphasis {
+    @apply text-base font-medium;
+  }
+  
+  .text-callout {
+    @apply text-base font-medium;
+  }
+  
+  /* Small text */
+  .text-footnote {
+    @apply text-sm font-normal;
+  }
+  
+  .text-caption-1 {
+    @apply text-xs font-medium;
+  }
+  
+  .text-caption-2 {
+    @apply text-xs font-normal;
+  }
+  
+  /* Utility classes */
+  .text-mono {
+    @apply font-mono;
+  }
+  
+  .text-truncate {
+    @apply truncate;
+  }
+  
+  .text-balance {
+    text-wrap: balance;
+  }
+}

@@ -178,7 +178,7 @@ export const ProviderSettings: React.FC<ProviderSettingsProps> = ({ onClose }) =
     <div className="w-full max-w-4xl mx-auto p-4">
       <div className="mb-6">
         <h2 className="text-2xl font-bold">Provider Settings</h2>
-        <p className="text-muted-foreground">Configure your AI provider API keys and settings</p>
+        <p className="text-foreground-secondary">Configure your AI provider API keys and settings</p>
       </div>
 
       <Tabs defaultValue="openai" className="w-full">
@@ -208,7 +208,7 @@ export const ProviderSettings: React.FC<ProviderSettingsProps> = ({ onClose }) =
                   value={providers.openai?.api_key || ''}
                   onChange={(e) => updateProvider('openai', { api_key: e.target.value })}
                 />
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-foreground-tertiary">
                   Get your API key from{' '}
                   <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
                     platform.openai.com
@@ -233,13 +233,13 @@ export const ProviderSettings: React.FC<ProviderSettingsProps> = ({ onClose }) =
                   <div className="flex items-center gap-1">
                     {connectionStatus.openai === 'success' ? (
                       <>
-                        <Check className="w-4 h-4 text-green-500" />
-                        <span className="text-sm text-green-500">Connected</span>
+                        <Check className="w-4 h-4 text-accent-green" />
+                        <span className="text-sm text-accent-green">Connected</span>
                       </>
                     ) : (
                       <>
-                        <X className="w-4 h-4 text-red-500" />
-                        <span className="text-sm text-red-500">Connection failed</span>
+                        <X className="w-4 h-4 text-accent-red" />
+                        <span className="text-sm text-accent-red">Connection failed</span>
                       </>
                     )}
                   </div>
@@ -268,7 +268,7 @@ export const ProviderSettings: React.FC<ProviderSettingsProps> = ({ onClose }) =
                   value={providers.anthropic?.api_key || ''}
                   onChange={(e) => updateProvider('anthropic', { api_key: e.target.value })}
                 />
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-foreground-tertiary">
                   Get your API key from{' '}
                   <a href="https://console.anthropic.com/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
                     console.anthropic.com
@@ -293,13 +293,13 @@ export const ProviderSettings: React.FC<ProviderSettingsProps> = ({ onClose }) =
                   <div className="flex items-center gap-1">
                     {connectionStatus.anthropic === 'success' ? (
                       <>
-                        <Check className="w-4 h-4 text-green-500" />
-                        <span className="text-sm text-green-500">Connected</span>
+                        <Check className="w-4 h-4 text-accent-green" />
+                        <span className="text-sm text-accent-green">Connected</span>
                       </>
                     ) : (
                       <>
-                        <X className="w-4 h-4 text-red-500" />
-                        <span className="text-sm text-red-500">Connection failed</span>
+                        <X className="w-4 h-4 text-accent-red" />
+                        <span className="text-sm text-accent-red">Connection failed</span>
                       </>
                     )}
                   </div>
@@ -328,7 +328,7 @@ export const ProviderSettings: React.FC<ProviderSettingsProps> = ({ onClose }) =
                   value={providers.ollama?.base_url || 'http://localhost:11434'}
                   onChange={(e) => updateProvider('ollama', { base_url: e.target.value })}
                 />
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-foreground-tertiary">
                   Default Ollama API endpoint. Make sure Ollama is running locally.
                 </p>
               </div>
@@ -336,11 +336,11 @@ export const ProviderSettings: React.FC<ProviderSettingsProps> = ({ onClose }) =
               <div className="space-y-2">
                 <Label>Available Models</Label>
                 {providers.ollama?.models && providers.ollama.models.length > 0 ? (
-                  <div className="text-sm text-muted-foreground">
+                  <div className="text-sm text-foreground-tertiary">
                     {providers.ollama.models.join(', ')}
                   </div>
                 ) : (
-                  <div className="text-sm text-muted-foreground">
+                  <div className="text-sm text-foreground-tertiary">
                     No models found. Click "Discover Models" to find available models.
                   </div>
                 )}
@@ -376,13 +376,13 @@ export const ProviderSettings: React.FC<ProviderSettingsProps> = ({ onClose }) =
                   <div className="flex items-center gap-1">
                     {connectionStatus.ollama === 'success' ? (
                       <>
-                        <Check className="w-4 h-4 text-green-500" />
-                        <span className="text-sm text-green-500">Connected</span>
+                        <Check className="w-4 h-4 text-accent-green" />
+                        <span className="text-sm text-accent-green">Connected</span>
                       </>
                     ) : (
                       <>
-                        <X className="w-4 h-4 text-red-500" />
-                        <span className="text-sm text-red-500">Not available</span>
+                        <X className="w-4 h-4 text-accent-red" />
+                        <span className="text-sm text-accent-red">Not available</span>
                       </>
                     )}
                   </div>
@@ -411,7 +411,7 @@ export const ProviderSettings: React.FC<ProviderSettingsProps> = ({ onClose }) =
                   value={providers['lm-studio']?.base_url || 'http://localhost:1234'}
                   onChange={(e) => updateProvider('lm-studio', { base_url: e.target.value })}
                 />
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-foreground-tertiary">
                   Default LM Studio API endpoint. Make sure LM Studio server is running.
                 </p>
               </div>
@@ -419,11 +419,11 @@ export const ProviderSettings: React.FC<ProviderSettingsProps> = ({ onClose }) =
               <div className="space-y-2">
                 <Label>Available Models</Label>
                 {providers['lm-studio']?.models && providers['lm-studio'].models.length > 0 ? (
-                  <div className="text-sm text-muted-foreground">
+                  <div className="text-sm text-foreground-tertiary">
                     {providers['lm-studio'].models.join(', ')}
                   </div>
                 ) : (
-                  <div className="text-sm text-muted-foreground">
+                  <div className="text-sm text-foreground-tertiary">
                     No models found. Click "Discover Models" to find available models.
                   </div>
                 )}
@@ -459,13 +459,13 @@ export const ProviderSettings: React.FC<ProviderSettingsProps> = ({ onClose }) =
                   <div className="flex items-center gap-1">
                     {connectionStatus['lm-studio'] === 'success' ? (
                       <>
-                        <Check className="w-4 h-4 text-green-500" />
-                        <span className="text-sm text-green-500">Connected</span>
+                        <Check className="w-4 h-4 text-accent-green" />
+                        <span className="text-sm text-accent-green">Connected</span>
                       </>
                     ) : (
                       <>
-                        <X className="w-4 h-4 text-red-500" />
-                        <span className="text-sm text-red-500">Not available</span>
+                        <X className="w-4 h-4 text-accent-red" />
+                        <span className="text-sm text-accent-red">Not available</span>
                       </>
                     )}
                   </div>

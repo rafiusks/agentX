@@ -207,19 +207,20 @@ export function Chat() {
                 onKeyDown={handleKeyDown}
                 placeholder={isStreaming ? "Waiting for response..." : isCreatingSession ? "Creating session..." : "Type a message..."}
                 disabled={isStreaming || isCreatingSession}
-                className="w-full px-4 py-3 pr-12 bg-background-primary border border-border-default 
-                         rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-accent-primary 
+                className="w-full px-4 py-3 pr-12 bg-background-secondary border border-border-subtle 
+                         rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-accent-blue/50 
+                         focus:ring-offset-2 focus:ring-offset-background-primary
                          text-foreground-primary placeholder-foreground-tertiary
-                         disabled:opacity-50 disabled:cursor-not-allowed"
+                         disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                 rows={3}
               />
               <button
                 type="submit"
                 disabled={!input.trim() || isStreaming || isCreatingSession}
-                className="absolute bottom-3 right-3 p-2 rounded-md
-                         bg-accent-primary text-white disabled:opacity-50 
-                         disabled:cursor-not-allowed hover:bg-accent-primary-hover
-                         transition-colors"
+                className="absolute bottom-3 right-3 p-2 rounded-lg
+                         bg-accent-blue text-white disabled:opacity-50 
+                         disabled:cursor-not-allowed hover:bg-accent-blue/90
+                         transition-all active:scale-95"
               >
                 {isStreaming || isCreatingSession ? (
                   <Loader2 size={18} className="animate-spin" />

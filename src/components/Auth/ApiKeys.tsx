@@ -145,10 +145,10 @@ export const ApiKeys: React.FC = () => {
     <div className="max-w-6xl mx-auto p-6">
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+          <h1 className="text-3xl font-bold text-foreground-primary">
             API Keys
           </h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-2">
+          <p className="text-foreground-secondary mt-2">
             Manage API keys for programmatic access to AgentX
           </p>
         </div>
@@ -165,10 +165,10 @@ export const ApiKeys: React.FC = () => {
       </div>
 
       {successMessage && (
-        <div className="mb-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md p-4">
+        <div className="mb-4 bg-accent-green/10 border border-accent-green/30 rounded-md p-4">
           <div className="flex">
-            <CheckCircle className="h-5 w-5 text-green-400 mr-2" />
-            <p className="text-sm text-green-800 dark:text-green-400">
+            <CheckCircle className="h-5 w-5 text-accent-green mr-2" />
+            <p className="text-sm text-accent-green">
               {successMessage}
             </p>
           </div>
@@ -176,10 +176,10 @@ export const ApiKeys: React.FC = () => {
       )}
 
       {error && (
-        <div className="mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-4">
+        <div className="mb-4 bg-accent-red/10 border border-accent-red/30 rounded-md p-4">
           <div className="flex">
-            <AlertCircle className="h-5 w-5 text-red-400 mr-2" />
-            <p className="text-sm text-red-800 dark:text-red-400">
+            <AlertCircle className="h-5 w-5 text-accent-red mr-2" />
+            <p className="text-sm text-accent-red">
               {error}
             </p>
           </div>
@@ -188,22 +188,22 @@ export const ApiKeys: React.FC = () => {
 
       {/* New Key Created Alert */}
       {newKeyResponse && (
-        <Card className="mb-6 p-6 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+        <Card className="mb-6 p-6 bg-accent-blue/10 border border-accent-blue/30">
           <div className="space-y-4">
             <div className="flex items-start">
-              <AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-400 mr-2 mt-0.5" />
+              <AlertCircle className="h-5 w-5 text-accent-blue mr-2 mt-0.5" />
               <div className="flex-1">
-                <h3 className="font-semibold text-blue-900 dark:text-blue-200">
+                <h3 className="font-semibold text-accent-blue">
                   API Key Created Successfully
                 </h3>
-                <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                <p className="text-sm text-accent-blue mt-1">
                   Make sure to copy your API key now. You won't be able to see it again!
                 </p>
               </div>
             </div>
             
-            <div className="bg-white dark:bg-gray-800 rounded-md p-3 font-mono text-sm flex items-center justify-between">
-              <span className="text-gray-900 dark:text-gray-100 break-all">
+            <div className="bg-background-primary rounded-md p-3 font-mono text-sm flex items-center justify-between">
+              <span className="text-foreground-primary break-all">
                 {newKeyResponse.key}
               </span>
               <Button
@@ -213,7 +213,7 @@ export const ApiKeys: React.FC = () => {
                 className="ml-2"
               >
                 {copiedKeyId === newKeyResponse.id ? (
-                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  <CheckCircle className="h-4 w-4 text-accent-green" />
                 ) : (
                   <Copy className="h-4 w-4" />
                 )}
@@ -248,7 +248,7 @@ export const ApiKeys: React.FC = () => {
                 className="mt-1"
                 required
               />
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              <p className="text-xs text-foreground-tertiary mt-1">
                 A descriptive name to identify this key
               </p>
             </div>
@@ -259,7 +259,7 @@ export const ApiKeys: React.FC = () => {
                 {availableScopes.map(scope => (
                   <label
                     key={scope.value}
-                    className="flex items-start p-3 border rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
+                    className="flex items-start p-3 border rounded-lg cursor-pointer hover:bg-background-tertiary"
                   >
                     <input
                       type="checkbox"
@@ -269,7 +269,7 @@ export const ApiKeys: React.FC = () => {
                     />
                     <div className="flex-1">
                       <div className="font-medium text-sm">{scope.label}</div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                      <div className="text-xs text-foreground-tertiary">
                         {scope.description}
                       </div>
                     </div>
@@ -284,7 +284,7 @@ export const ApiKeys: React.FC = () => {
                 id="expires"
                 value={formData.expiresIn}
                 onChange={(e) => setFormData({ ...formData, expiresIn: e.target.value })}
-                className="mt-1 w-full px-3 py-2 border rounded-md bg-white dark:bg-gray-800"
+                className="mt-1 w-full px-3 py-2 border rounded-md bg-background-primary"
               >
                 <option value="30">30 days</option>
                 <option value="90">90 days</option>
@@ -331,15 +331,15 @@ export const ApiKeys: React.FC = () => {
       {/* API Keys List */}
       {isLoadingKeys && !showCreateForm ? (
         <div className="flex justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+          <Loader2 className="h-8 w-8 animate-spin text-foreground-tertiary" />
         </div>
       ) : apiKeys.length === 0 ? (
         <Card className="p-12 text-center">
-          <Key className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+          <Key className="h-12 w-12 text-foreground-tertiary mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-foreground-primary mb-2">
             No API Keys Yet
           </h3>
-          <p className="text-gray-500 dark:text-gray-400">
+          <p className="text-foreground-secondary">
             Create your first API key to start using AgentX programmatically
           </p>
         </Card>
@@ -350,14 +350,14 @@ export const ApiKeys: React.FC = () => {
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
-                    <h3 className="font-semibold text-gray-900 dark:text-white">
+                    <h3 className="font-semibold text-foreground-primary">
                       {apiKey.name}
                     </h3>
                     <div className="flex gap-2">
                       {apiKey.scopes.map(scope => (
                         <span
                           key={scope}
-                          className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200"
+                          className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-background-tertiary text-foreground-primary"
                         >
                           {scope}
                         </span>
@@ -365,7 +365,7 @@ export const ApiKeys: React.FC = () => {
                     </div>
                   </div>
                   
-                  <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+                  <div className="flex items-center gap-4 text-sm text-foreground-tertiary">
                     <div className="flex items-center">
                       <Calendar className="h-4 w-4 mr-1" />
                       Created {new Date(apiKey.createdAt).toLocaleDateString()}
@@ -385,7 +385,7 @@ export const ApiKeys: React.FC = () => {
                   </div>
                   
                   <div className="flex items-center gap-2 mt-3">
-                    <code className="px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded text-sm font-mono">
+                    <code className="px-2 py-1 bg-background-tertiary rounded text-sm font-mono">
                       {visibleKeys.has(apiKey.id) ? apiKey.key : maskApiKey(apiKey.key)}
                     </code>
                     <Button
@@ -405,7 +405,7 @@ export const ApiKeys: React.FC = () => {
                       onClick={() => copyToClipboard(apiKey.key, apiKey.id)}
                     >
                       {copiedKeyId === apiKey.id ? (
-                        <CheckCircle className="h-4 w-4 text-green-500" />
+                        <CheckCircle className="h-4 w-4 text-accent-green" />
                       ) : (
                         <Copy className="h-4 w-4" />
                       )}
@@ -417,7 +417,7 @@ export const ApiKeys: React.FC = () => {
                   variant="ghost"
                   size="sm"
                   onClick={() => handleDeleteKey(apiKey.id)}
-                  className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                  className="text-accent-red hover:text-accent-red/80 hover:bg-accent-red/10"
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>

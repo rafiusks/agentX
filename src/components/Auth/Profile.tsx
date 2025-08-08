@@ -136,7 +136,7 @@ export const Profile: React.FC = () => {
 
   return (
     <div className="max-w-4xl mx-auto p-6">
-      <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">
+      <h1 className="text-3xl font-bold text-foreground-primary mb-8">
         Account Settings
       </h1>
 
@@ -160,10 +160,10 @@ export const Profile: React.FC = () => {
       </div>
 
       {successMessage && (
-        <div className="mb-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md p-4">
+        <div className="mb-4 bg-accent-green/10 border border-accent-green/30 rounded-md p-4">
           <div className="flex">
-            <CheckCircle className="h-5 w-5 text-green-400 mr-2" />
-            <p className="text-sm text-green-800 dark:text-green-400">
+            <CheckCircle className="h-5 w-5 text-accent-green mr-2" />
+            <p className="text-sm text-accent-green">
               {successMessage}
             </p>
           </div>
@@ -171,10 +171,10 @@ export const Profile: React.FC = () => {
       )}
 
       {error && (
-        <div className="mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-4">
+        <div className="mb-4 bg-accent-red/10 border border-accent-red/30 rounded-md p-4">
           <div className="flex">
-            <AlertCircle className="h-5 w-5 text-red-400 mr-2" />
-            <p className="text-sm text-red-800 dark:text-red-400">
+            <AlertCircle className="h-5 w-5 text-accent-red mr-2" />
+            <p className="text-sm text-accent-red">
               {error}
             </p>
           </div>
@@ -186,34 +186,34 @@ export const Profile: React.FC = () => {
           <h2 className="text-xl font-semibold mb-6">Profile Information</h2>
           
           <div className="space-y-4 mb-6">
-            <div className="flex items-center space-x-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-              <Mail className="h-5 w-5 text-gray-400" />
+            <div className="flex items-center space-x-3 p-3 bg-background-tertiary rounded-lg">
+              <Mail className="h-5 w-5 text-foreground-tertiary" />
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Email</p>
+                <p className="text-sm text-foreground-tertiary">Email</p>
                 <p className="font-medium">{user.email}</p>
               </div>
             </div>
 
-            <div className="flex items-center space-x-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-              <User className="h-5 w-5 text-gray-400" />
+            <div className="flex items-center space-x-3 p-3 bg-background-tertiary rounded-lg">
+              <User className="h-5 w-5 text-foreground-tertiary" />
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Username</p>
+                <p className="text-sm text-foreground-tertiary">Username</p>
                 <p className="font-medium">{user.username}</p>
               </div>
             </div>
 
-            <div className="flex items-center space-x-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-              <Shield className="h-5 w-5 text-gray-400" />
+            <div className="flex items-center space-x-3 p-3 bg-background-tertiary rounded-lg">
+              <Shield className="h-5 w-5 text-foreground-tertiary" />
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Role</p>
+                <p className="text-sm text-foreground-tertiary">Role</p>
                 <p className="font-medium capitalize">{user.role}</p>
               </div>
             </div>
 
-            <div className="flex items-center space-x-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-              <Calendar className="h-5 w-5 text-gray-400" />
+            <div className="flex items-center space-x-3 p-3 bg-background-tertiary rounded-lg">
+              <Calendar className="h-5 w-5 text-foreground-tertiary" />
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Member Since</p>
+                <p className="text-sm text-foreground-tertiary">Member Since</p>
                 <p className="font-medium">
                   {new Date(user.createdAt).toLocaleDateString('en-US', {
                     year: 'numeric',
@@ -250,7 +250,7 @@ export const Profile: React.FC = () => {
                 className="mt-1"
                 placeholder="https://example.com/avatar.jpg"
               />
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              <p className="text-xs text-foreground-tertiary mt-1">
                 Enter a URL to your profile picture
               </p>
             </div>
@@ -289,10 +289,10 @@ export const Profile: React.FC = () => {
                 type="password"
                 value={passwordData.currentPassword}
                 onChange={handlePasswordChange}
-                className={`mt-1 ${passwordErrors.currentPassword ? 'border-red-500' : ''}`}
+                className={`mt-1 ${passwordErrors.currentPassword ? 'border-accent-red' : ''}`}
               />
               {passwordErrors.currentPassword && (
-                <p className="mt-1 text-sm text-red-600">{passwordErrors.currentPassword}</p>
+                <p className="mt-1 text-sm text-accent-red">{passwordErrors.currentPassword}</p>
               )}
             </div>
 
@@ -304,10 +304,10 @@ export const Profile: React.FC = () => {
                 type="password"
                 value={passwordData.newPassword}
                 onChange={handlePasswordChange}
-                className={`mt-1 ${passwordErrors.newPassword ? 'border-red-500' : ''}`}
+                className={`mt-1 ${passwordErrors.newPassword ? 'border-accent-red' : ''}`}
               />
               {passwordErrors.newPassword && (
-                <p className="mt-1 text-sm text-red-600">{passwordErrors.newPassword}</p>
+                <p className="mt-1 text-sm text-accent-red">{passwordErrors.newPassword}</p>
               )}
             </div>
 
@@ -319,10 +319,10 @@ export const Profile: React.FC = () => {
                 type="password"
                 value={passwordData.confirmPassword}
                 onChange={handlePasswordChange}
-                className={`mt-1 ${passwordErrors.confirmPassword ? 'border-red-500' : ''}`}
+                className={`mt-1 ${passwordErrors.confirmPassword ? 'border-accent-red' : ''}`}
               />
               {passwordErrors.confirmPassword && (
-                <p className="mt-1 text-sm text-red-600">{passwordErrors.confirmPassword}</p>
+                <p className="mt-1 text-sm text-accent-red">{passwordErrors.confirmPassword}</p>
               )}
             </div>
 

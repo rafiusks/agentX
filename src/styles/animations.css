@@ -1,0 +1,146 @@
+/* Animation system following Apple's fluid motion principles */
+
+@layer utilities {
+  /* Transition utilities */
+  .transition-default {
+    @apply transition-all duration-200 ease-out;
+  }
+  
+  .transition-slow {
+    @apply transition-all duration-300 ease-in-out;
+  }
+  
+  .transition-spring {
+    transition: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  }
+  
+  .transition-smooth {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  /* Hover effects */
+  .hover-lift {
+    @apply hover:-translate-y-0.5 transition-transform;
+  }
+  
+  .hover-glow {
+    @apply hover:shadow-lg hover:shadow-accent-blue/20 transition-shadow;
+  }
+  
+  .active-scale {
+    @apply active:scale-95 transition-transform;
+  }
+  
+  .active-scale-subtle {
+    @apply active:scale-[0.98] transition-transform;
+  }
+  
+  /* Focus effects */
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background-primary;
+  }
+  
+  .focus-ring-subtle {
+    @apply focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-blue/30 focus-visible:ring-offset-1 focus-visible:ring-offset-background-primary;
+  }
+  
+  /* Loading states */
+  .loading-pulse {
+    @apply animate-pulse;
+  }
+  
+  .loading-spin {
+    @apply animate-spin;
+  }
+  
+  .loading-bounce {
+    @apply animate-bounce;
+  }
+  
+  /* Skeleton loading */
+  .skeleton {
+    @apply bg-gradient-to-r from-background-tertiary via-background-accent to-background-tertiary;
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s ease-in-out infinite;
+  }
+  
+  @keyframes skeleton-loading {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
+  }
+  
+  /* Fade animations */
+  .fade-in {
+    animation: fadeIn 0.2s ease-out;
+  }
+  
+  .fade-in-up {
+    animation: fadeInUp 0.3s ease-out;
+  }
+  
+  .fade-in-down {
+    animation: fadeInDown 0.3s ease-out;
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  @keyframes fadeInDown {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  /* Slide animations */
+  .slide-in-right {
+    animation: slideInRight 0.3s ease-out;
+  }
+  
+  .slide-in-left {
+    animation: slideInLeft 0.3s ease-out;
+  }
+  
+  @keyframes slideInRight {
+    from {
+      transform: translateX(100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+  
+  @keyframes slideInLeft {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+}

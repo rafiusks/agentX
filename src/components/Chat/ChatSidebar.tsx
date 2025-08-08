@@ -52,7 +52,7 @@ export function ChatSidebar() {
         <button
           onClick={handleCreateChat}
           disabled={createChatMutation.isPending}
-          className="w-full btn-primary px-4 py-2 gap-2"
+          className="w-full bg-accent-blue text-white hover:bg-accent-blue/90 px-4 py-2 gap-2 rounded-lg font-medium transition-all active:scale-[0.98] flex items-center justify-center"
         >
           <Plus size={16} />
           New Chat

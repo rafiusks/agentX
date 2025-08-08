@@ -67,14 +67,14 @@ export const UserMenu: React.FC = () => {
               className="h-8 w-8 rounded-full"
             />
           ) : (
-            <div className="h-8 w-8 rounded-full bg-gray-300 dark:bg-gray-700 flex items-center justify-center">
-              <User className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+            <div className="h-8 w-8 rounded-full bg-background-tertiary flex items-center justify-center">
+              <User className="h-5 w-5 text-foreground-secondary" />
             </div>
           )}
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+          <span className="text-sm font-medium text-foreground-primary">
             {user.username}
           </span>
-          <ChevronDown className="h-4 w-4 text-gray-500" />
+          <ChevronDown className="h-4 w-4 text-foreground-secondary" />
         </div>
       </Button>
 
@@ -84,19 +84,19 @@ export const UserMenu: React.FC = () => {
             className="fixed inset-0 z-10"
             onClick={() => setIsOpen(false)}
           />
-          <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg py-1 z-20 border border-gray-200 dark:border-gray-700">
-            <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
-              <p className="text-sm font-medium text-gray-900 dark:text-white">
+          <div className="absolute right-0 mt-2 w-48 bg-background-secondary rounded-md shadow-lg py-1 z-20 border border-border-subtle">
+            <div className="px-4 py-2 border-b border-border-subtle">
+              <p className="text-sm font-medium text-foreground-primary">
                 {user.fullName || user.username}
               </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
+              <p className="text-xs text-foreground-secondary">
                 {user.email}
               </p>
               {user.role !== 'user' && (
                 <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium mt-1 ${
                   user.role === 'admin' 
-                    ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                    : 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
+                    ? 'bg-accent-red/10 text-accent-red'
+                    : 'bg-accent-purple/10 text-accent-purple'
                 }`}>
                   {user.role}
                 </span>
@@ -110,17 +110,17 @@ export const UserMenu: React.FC = () => {
                   item.onClick();
                   setIsOpen(false);
                 }}
-                className="w-full flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                className="w-full flex items-center px-4 py-2 text-sm text-foreground-primary hover:bg-background-tertiary"
               >
                 <item.icon className="h-4 w-4 mr-2" />
                 {item.label}
               </button>
             ))}
 
-            <div className="border-t border-gray-200 dark:border-gray-700">
+            <div className="border-t border-border-subtle">
               <button
                 onClick={handleLogout}
-                className="w-full flex items-center px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                className="w-full flex items-center px-4 py-2 text-sm text-accent-red hover:bg-background-tertiary"
               >
                 <LogOut className="h-4 w-4 mr-2" />
                 Sign out
