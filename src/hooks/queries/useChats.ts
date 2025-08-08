@@ -100,6 +100,7 @@ export const useChatMessages = (chatId?: string) => {
     queryKey: chatKeys.messages(chatId!),
     queryFn: async () => {
       const response = await apiClient.get<{ messages: Message[] }>(`/sessions/${chatId}/messages`);
+      console.log('Raw messages response:', response);
       return response.messages || [];
     },
     enabled: !!chatId,

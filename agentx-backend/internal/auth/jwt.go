@@ -11,9 +11,9 @@ import (
 
 const (
 	// AccessTokenTTL is the access token time to live
-	AccessTokenTTL = 15 * time.Minute
+	AccessTokenTTL = 24 * time.Hour  // Extended from 15 minutes to 24 hours for better UX
 	// RefreshTokenTTL is the refresh token time to live
-	RefreshTokenTTL = 7 * 24 * time.Hour
+	RefreshTokenTTL = 30 * 24 * time.Hour  // Extended from 7 days to 30 days
 )
 
 var (

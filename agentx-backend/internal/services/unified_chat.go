@@ -64,12 +64,15 @@ func (s *UnifiedChatService) Chat(ctx context.Context, req models.UnifiedChatReq
 	
 	// 5. Save user message if session exists
 	if req.SessionID != "" {
-		for _, msg := range req.Messages {
-			if msg.Role == "user" {
+		// Only save the last user message (the new one)
+		// The frontend sends the full conversation history, but we only want to persist the new message
+		if len(req.Messages) > 0 {
+			lastMsg := req.Messages[len(req.Messages)-1]
+			if lastMsg.Role == "user" {
 				s.messageRepo.Create(ctx, repository.Message{
 					SessionID: req.SessionID,
-					Role:      msg.Role,
-					Content:   msg.Content,
+					Role:      lastMsg.Role,
+					Content:   lastMsg.Content,
 				})
 			}
 		}
@@ -200,13 +203,15 @@ func (s *UnifiedChatService) StreamChat(ctx context.Context, req models.UnifiedC
 		
 		// Save messages if session exists
 		if req.SessionID != "" {
-			// Save user message
-			for _, msg := range req.Messages {
-				if msg.Role == "user" {
+			// Only save the last user message (the new one)
+			// The frontend sends the full conversation history, but we only want to persist the new message
+			if len(req.Messages) > 0 {
+				lastMsg := req.Messages[len(req.Messages)-1]
+				if lastMsg.Role == "user" {
 					s.messageRepo.Create(ctx, repository.Message{
 						SessionID: req.SessionID,
-						Role:      msg.Role,
-						Content:   msg.Content,
+						Role:      lastMsg.Role,
+						Content:   lastMsg.Content,
 					})
 				}
 			}
