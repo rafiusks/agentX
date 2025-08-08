@@ -8,7 +8,7 @@ export default defineConfig(async () => ({
 
   clearScreen: false,
   server: {
-    port: 1420,
+    port: 5173,
   },
   
   // Path alias resolution
