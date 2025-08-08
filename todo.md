@@ -15,19 +15,34 @@ AgentX now has a fully functional LLM chat interface with:
 
 ### Quick Start
 ```bash
-# Run with OpenAI
-OPENAI_API_KEY=your-key cargo run
+# Start the development environment
+make dev
 
-# Run with Anthropic
-ANTHROPIC_API_KEY=your-key cargo run
+# Or run components separately:
+# Start backend
+cd agentx-backend && go run cmd/server/main.go
 
-# Run with Ollama (install Ollama first)
-ollama pull llama2
-cargo run
-
-# Run standalone (no setup needed!)
-cargo run
+# Start frontend
+npm run dev
 ```
+
+---
+
+## 🧹 Comprehensive Codebase Cleanup (2024-08-08)
+
+### Completed Cleanup Tasks
+- [x] **Removed all test files**: Eliminated test*.js, test*.html, test*.png, debug-ollama-mcp.js, minimal-test.js, simple-test-server.js, test_function_calling.js, test_functions.html
+- [x] **Removed Rust legacy code**: Deleted src-backup/, examples/, target/ directories from Rust-based terminal app era
+- [x] **Cleaned up old documentation**: Removed idea.md, MCP_TESTING_GUIDE.md, OLLAMA_FUNCTION_CALLING_ISSUE.md, TESTING_FUNCTIONS.md, FULL_STACK_README.md
+- [x] **Removed unused scripts**: Deleted start-mcp-postgres.sh, create_icon.py
+- [x] **Backend cleanup**: Removed compiled binaries (server, main), tmp/ directory, user_id.txt test files
+- [x] **Updated .gitignore**: Modernized to reflect React+Go architecture, removed Rust-specific entries, added proper Node.js and Go build artifact exclusions
+
+### Project Architecture Now Clean
+- **Frontend**: Clean React+TypeScript codebase with proper component structure
+- **Backend**: Clean Go API server with organized internal packages
+- **Documentation**: Streamlined with only essential docs in /docs/ folder
+- **Configuration**: Proper environment setup with example files
 
 ---
 

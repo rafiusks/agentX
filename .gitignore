@@ -1,12 +1,19 @@
-# Rust build artifacts
-/target/
-**/*.rs.bk
-*.pdb
+# Node.js dependencies and build artifacts
+node_modules/
+dist/
+build/
+.next/
+out/
 
-# Cargo
-Cargo.lock
-# Remove Cargo.lock from gitignore if creating an executable
-# Cargo.lock should be committed for binary crates
+# Go build artifacts
+server
+main
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+vendor/
 
 # IDE and editor files
 .idea/
@@ -110,15 +117,11 @@ lcov.info
 /config/local/
 agentx.local.toml
 
-# Tauri specific
-/src-tauri/target/
-/dist/
-/node_modules/
-
-# Frontend build
-/build/
-/.next/
-/out/
+# Frontend specific
+/coverage/
+/.nyc_output/
+/test-results/
+/playwright-report/
 
 # Test files and scripts
 test-*.js
@@ -148,10 +151,6 @@ perf.data.old
 flamegraph.svg
 /profiling/
 
-# Build artifacts from examples
-/examples/target/
-/examples/*/target/
-
 # Generated files
 /generated/
 
@@ -170,7 +169,8 @@ claude_cache/
 agentx-config.json
 
 # Backend specific
-agentx-backend/agentx-server
+agentx-backend/server
+agentx-backend/main
 agentx-backend/config.json
 agentx-backend/tmp/
 agentx-backend/*.log
@@ -179,11 +179,6 @@ agentx-backend/vendor/
 # Docker volumes
 postgres_data/
 docker-compose.override.yml
-
-# Rust workspace
-/Cargo.lock
-# Uncomment if this is a binary crate:
-#!/Cargo.lock
 
 # Debug files
 *.dSYM/
