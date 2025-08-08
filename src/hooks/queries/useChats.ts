@@ -20,12 +20,18 @@ export interface Chat {
 export interface Message {
   id: string;
   chat_id: string;
-  role: 'user' | 'assistant' | 'system';
+  role: 'user' | 'assistant' | 'system' | 'function';
   content: string;
   provider?: string;
   model?: string;
   created_at: string;
   metadata?: Record<string, any>;
+  // Optional streaming/UI properties
+  isStreaming?: boolean;
+  functionCall?: {
+    name: string;
+    arguments: string;
+  };
 }
 
 export interface CreateChatRequest {
@@ -118,7 +124,7 @@ export const useCreateChat = () => {
     mutationFn: async (data: CreateChatRequest) => {
       return apiClient.post<Chat>('/sessions', data);
     },
-    onSuccess: (newChat) => {
+    onSuccess: (_newChat) => {
       // Invalidate all chat lists to refetch
       queryClient.invalidateQueries({ queryKey: chatKeys.all });
     },
@@ -137,7 +143,7 @@ export const useUpdateChat = () => {
     },
     onSuccess: (updatedChat) => {
       // Update specific chat in cache
-      queryClient.setQueryData(chatKeys.detail(updatedChat.id), updatedChat);
+      queryClient.setQueryData(chatKeys.detail(updatedChat.id || updatedChat.ID), updatedChat);
       
       // Invalidate all chat lists to refetch with updated data
       queryClient.invalidateQueries({ queryKey: chatKeys.lists() });

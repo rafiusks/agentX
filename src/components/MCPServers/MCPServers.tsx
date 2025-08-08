@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
-import { Plus, Server, Trash2, Wrench } from 'lucide-react'
+import { Server, Trash2 } from 'lucide-react'
 
 export function MCPServers() {
-  const [servers, setServers] = useState<string[]>([])
-  const [tools, setTools] = useState<string[]>([])
-  const [showAddForm, setShowAddForm] = useState(false)
-  const [newServer, setNewServer] = useState({
+  const [servers, _setServers] = useState<string[]>([])
+  const [_tools, _setTools] = useState<string[]>([])
+  const [_showAddForm, _setShowAddForm] = useState(false)
+  const [_newServer, _setNewServer] = useState({
     name: '',
     command: '',
     args: ''

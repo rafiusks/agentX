@@ -340,7 +340,7 @@ export const Signup: React.FC = () => {
           <Button
             type="submit"
             className="w-full"
-            disabled={signupMutation.isPending || (formData.password && passwordStrength && !passwordStrength.isValid)}
+            disabled={signupMutation.isPending || (formData.password && passwordStrength && !passwordStrength.isValid) || false}
           >
             {signupMutation.isPending ? (
               <>

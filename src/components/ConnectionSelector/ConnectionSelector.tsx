@@ -46,7 +46,7 @@ export function ConnectionSelector({ currentConnectionId, onConnectionChange }: 
       
       // Set default connection if none selected
       if (!currentConnectionId && result.length > 0) {
-        const enabledConnection = result.find(c => c.enabled) || result[0]
+        const enabledConnection = result.find((c: any) => c.enabled) || result[0]
         if (enabledConnection) {
           onConnectionChange(enabledConnection.id)
         }

@@ -3,7 +3,7 @@ import { Send, Loader2 } from 'lucide-react'
 import { useChatStore } from '../../stores/chat.store'
 import { useUIStore } from '../../stores/ui.store'
 import { useStreamingStore } from '../../stores/streaming.store'
-import { useChats, useChat, useChatMessages, useSendStreamingMessage } from '../../hooks/queries/useChats'
+import { useChats, useChat, useChatMessages, useSendStreamingMessage, type Message } from '../../hooks/queries/useChats'
 import { useDefaultConnection } from '../../hooks/queries/useConnections'
 import { ChatMessage } from './ChatMessage'
 import { ChatSidebar } from './ChatSidebar'
@@ -30,7 +30,7 @@ export function Chat() {
   
   // Query hooks
   const { data: chats = [] } = useChats()
-  const { data: currentChat } = useChat(currentChatId || undefined)
+  const { data: _currentChat } = useChat(currentChatId || undefined)
   const { data: messages = [] } = useChatMessages(currentChatId || undefined)
   const { data: defaultConnection } = useDefaultConnection()
   const sendMessageMutation = useSendStreamingMessage()
@@ -90,6 +90,8 @@ export function Chat() {
     
     if (!input.trim() || isStreaming || !currentConnectionId || isCreatingSession) return
     
+    const messageContent = input.trim()
+    
     // Create a session if we don't have one
     if (!currentChatId) {
       setPendingMessage(messageContent)
@@ -110,7 +112,6 @@ export function Chat() {
       return
     }
     
-    const messageContent = input.trim()
     setInput('')
     setComposerDraft('')
     
@@ -182,7 +183,7 @@ export function Chat() {
                 ) : (
                   <>
                     {allMessages.map((message, index) => (
-                      <ChatMessage key={message.id || `msg-${index}`} message={message} />
+                      <ChatMessage key={message.id || `msg-${index}`} message={message as Message} />
                     ))}
                     {isStreaming && !streamingMessage && (
                       <div className="flex items-center gap-2 text-foreground-secondary">

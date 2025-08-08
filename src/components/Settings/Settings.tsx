@@ -1,6 +1,4 @@
-import React from 'react'
 import { ProviderConnections } from '../ProviderConnections'
-import { ModeSelector } from '../ModeSelector/ModeSelector'
 
 interface SettingsProps {
   providers: Array<{
@@ -12,7 +10,7 @@ interface SettingsProps {
   onProvidersUpdate: () => void
 }
 
-export function Settings({ providers, onProvidersUpdate }: SettingsProps) {
+export function Settings({ providers: _providers, onProvidersUpdate }: SettingsProps) {
   return (
     <div className="h-full flex flex-col bg-background">
       {/* Provider Connections takes full height */}

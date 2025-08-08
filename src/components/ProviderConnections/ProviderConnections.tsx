@@ -10,7 +10,7 @@ interface ProviderConnectionsProps {
   onClose?: () => void;
 }
 
-export const ProviderConnections: React.FC<ProviderConnectionsProps> = ({ onClose }) => {
+export const ProviderConnections: React.FC<ProviderConnectionsProps> = ({ onClose: _onClose }) => {
   const [providers, setProviders] = useState<ProviderGroup[]>([]);
   const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -28,7 +28,7 @@ export const ProviderConnections: React.FC<ProviderConnectionsProps> = ({ onClos
       const connections = await api.listConnections();
       
       // Group connections by provider
-      const grouped = connections.reduce((acc, conn) => {
+      const grouped = connections.reduce((acc: any, conn: any) => {
         // Map openai-compatible connections to lm-studio if they use port 1234
         let groupKey = conn.provider_id;
         if (conn.provider_id === 'openai-compatible' && 

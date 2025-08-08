@@ -227,7 +227,7 @@ export class AgentXAPI {
       }
     };
 
-    this.ws.onerror = (error) => {
+    this.ws.onerror = (_error) => {
       callbacks?.onError?.('WebSocket error occurred');
     };
 

@@ -39,7 +39,7 @@ export function ChatSidebar() {
     if (chatId === currentChatId) {
       const remainingChats = chats.filter(c => c.id !== chatId)
       if (remainingChats.length > 0) {
-        setCurrentChatId(remainingChats[0].id)
+        setCurrentChatId(remainingChats[0].id || remainingChats[0].ID || null)
       } else {
         setCurrentChatId(null)
       }
@@ -68,7 +68,7 @@ export function ChatSidebar() {
                 <p className="text-xs text-foreground-tertiary mt-1">Click "New Chat" to start</p>
               </div>
             ) : (
-              (chats || []).map((chat, index) => {
+              (chats || []).map((chat, _index) => {
               const chatId = chat.ID || chat.id;
               const chatTitle = chat.Title || chat.title;
               

@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { useCurrentUser } from '../../hooks/queries/useAuth';
+import React, { useState } from 'react';
 import { useApiKeys, useCreateApiKey, useDeleteApiKey } from '../../hooks/queries/useApiKeys';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -19,19 +18,10 @@ import {
   Shield
 } from 'lucide-react';
 
-interface ApiKey {
-  id: string;
-  name: string;
-  key: string;
-  scopes: string[];
-  lastUsed: string | null;
-  createdAt: string;
-  expiresAt: string | null;
-}
+// Using ApiKey type from useApiKeys hook
 
 export const ApiKeys: React.FC = () => {
-  const { data: user } = useCurrentUser();
-  const { data: apiKeys = [], isLoading: isLoadingKeys, refetch: refetchKeys } = useApiKeys();
+  const { data: apiKeys = [], isLoading: isLoadingKeys } = useApiKeys();
   const createApiKeyMutation = useCreateApiKey();
   const deleteApiKeyMutation = useDeleteApiKey();
   // Removed isLoading state - using hook loading states instead
@@ -127,10 +117,6 @@ export const ApiKeys: React.FC = () => {
     setVisibleKeys(newVisible);
   };
 
-  const maskApiKey = (key: string) => {
-    if (key.length <= 8) return '••••••••';
-    return `${key.substring(0, 4)}••••••••${key.substring(key.length - 4)}`;
-  };
 
   const handleScopeToggle = (scope: string) => {
     setFormData(prev => ({
@@ -351,42 +337,33 @@ export const ApiKeys: React.FC = () => {
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
                     <h3 className="font-semibold text-foreground-primary">
-                      {apiKey.name}
+                      {apiKey.label || apiKey.provider}
                     </h3>
                     <div className="flex gap-2">
-                      {apiKey.scopes.map(scope => (
-                        <span
-                          key={scope}
-                          className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-background-tertiary text-foreground-primary"
-                        >
-                          {scope}
-                        </span>
-                      ))}
+                      <span
+                        className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-background-tertiary text-foreground-primary"
+                      >
+                        {apiKey.provider}
+                      </span>
                     </div>
                   </div>
                   
                   <div className="flex items-center gap-4 text-sm text-foreground-tertiary">
                     <div className="flex items-center">
                       <Calendar className="h-4 w-4 mr-1" />
-                      Created {new Date(apiKey.createdAt).toLocaleDateString()}
+                      Created {new Date(apiKey.created_at).toLocaleDateString()}
                     </div>
-                    {apiKey.lastUsed && (
+                    {apiKey.last_used_at && (
                       <div className="flex items-center">
                         <Shield className="h-4 w-4 mr-1" />
-                        Last used {new Date(apiKey.lastUsed).toLocaleDateString()}
-                      </div>
-                    )}
-                    {apiKey.expiresAt && (
-                      <div className="flex items-center">
-                        <AlertCircle className="h-4 w-4 mr-1" />
-                        Expires {new Date(apiKey.expiresAt).toLocaleDateString()}
+                        Last used {new Date(apiKey.last_used_at).toLocaleDateString()}
                       </div>
                     )}
                   </div>
                   
                   <div className="flex items-center gap-2 mt-3">
                     <code className="px-2 py-1 bg-background-tertiary rounded text-sm font-mono">
-                      {visibleKeys.has(apiKey.id) ? apiKey.key : maskApiKey(apiKey.key)}
+                      {visibleKeys.has(apiKey.id) ? `sk-...${apiKey.key_hint}` : `••••${apiKey.key_hint}`}
                     </code>
                     <Button
                       variant="ghost"
@@ -402,7 +379,7 @@ export const ApiKeys: React.FC = () => {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => copyToClipboard(apiKey.key, apiKey.id)}
+                      onClick={() => alert('API keys cannot be retrieved after creation')}
                     >
                       {copiedKeyId === apiKey.id ? (
                         <CheckCircle className="h-4 w-4 text-accent-green" />

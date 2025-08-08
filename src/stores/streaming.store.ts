@@ -33,7 +33,7 @@ interface StreamingState {
   setStreamingMessage: (message: StreamingMessage | null) => void;
 }
 
-export const useStreamingStore = create<StreamingState>((set, get) => ({
+export const useStreamingStore = create<StreamingState>((set, _get) => ({
   // State
   streamingMessage: null,
   isStreaming: false,

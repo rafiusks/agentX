@@ -11,7 +11,6 @@ import { ModeToggle } from './components/ModeToggle/ModeToggle'
 import { UserMenu } from './components/Auth/UserMenu'
 import { useChatStore } from './stores/chat.store'
 import { useUIStore } from './stores/ui.store'
-import { useCurrentUser } from './hooks/queries/useAuth'
 import { Command } from 'lucide-react'
 import { api } from './services/api'
 // Verify correct API is imported
@@ -106,7 +105,7 @@ function App() {
       
       // Set default connection if none selected
       if (!currentConnectionId && result.length > 0) {
-        const enabledConnection = result.find(c => c.enabled) || result[0]
+        const enabledConnection = result.find((c: any) => c.enabled) || result[0]
         if (enabledConnection) {
           setCurrentConnectionId(enabledConnection.id)
         }

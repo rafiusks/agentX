@@ -39,7 +39,7 @@ export const queryClient = new QueryClient({
 
 // Global error handler for auth issues
 queryClient.setMutationDefaults(['auth'], {
-  mutationFn: async (variables: any) => {
+  mutationFn: async (_variables: any) => {
     throw new Error('Mutation function not implemented');
   },
   onError: (error) => {

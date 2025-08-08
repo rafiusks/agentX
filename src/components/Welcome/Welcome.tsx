@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronRight, Sparkles, Key, Cpu, Check } from 'lucide-react'
+import { ChevronRight, Sparkles, Key, Cpu } from 'lucide-react'
 import { api } from '../../services/api'
 
 interface WelcomeProps {
