@@ -313,7 +313,7 @@ export function Chat() {
             {/* Context Indicator and Settings */}
             {contextUsage && (
               <div className="border-t border-border-subtle">
-                <div className="max-w-6xl mx-auto px-4 py-2 flex items-center justify-between">
+                <div className="max-w-4xl mx-auto px-4 py-2 flex items-center justify-between">
                   <ContextIndicator {...contextUsage} />
                   <div className="flex items-center gap-2">
                     <ResponsePreferences />
@@ -332,7 +332,7 @@ export function Chat() {
             
             {/* Simple Input */}
             <div className="border-t border-border-subtle">
-              <div className="max-w-6xl mx-auto p-4">
+              <div className="max-w-4xl mx-auto p-4">
                 <SimpleMessageInput
                   value={input}
                   onChange={handleInputChange}

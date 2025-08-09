@@ -249,7 +249,7 @@
   }
   
   .chat-messages-wrapper {
-    @apply max-w-6xl mx-auto;
+    @apply max-w-4xl mx-auto;
     @apply space-y-8; /* Increased from space-y-6 */
   }
 }

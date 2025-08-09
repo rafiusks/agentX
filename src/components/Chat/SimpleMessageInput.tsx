@@ -19,19 +19,21 @@ export const SimpleMessageInput = memo(({
   disabled = false,
   placeholder = "Type a message..."
 }: SimpleMessageInputProps) => {
-  const [rows, setRows] = useState(1);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { isStreaming, abortStream } = useStreamingStore();
   
   // Auto-resize textarea based on content
   useEffect(() => {
     if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
+      // Reset height to get accurate scrollHeight
+      textareaRef.current.style.height = '40px';
       const scrollHeight = textareaRef.current.scrollHeight;
-      const lineHeight = 24;
-      const newRows = Math.min(Math.max(Math.floor(scrollHeight / lineHeight), 1), 10);
-      setRows(newRows);
-      textareaRef.current.style.height = `${scrollHeight}px`;
+      
+      // Only grow if content actually needs more space
+      if (scrollHeight > 40) {
+        const newHeight = Math.min(scrollHeight, 200); // Reduced max height
+        textareaRef.current.style.height = `${newHeight}px`;
+      }
     }
   }, [value]);
   
@@ -70,14 +72,15 @@ export const SimpleMessageInput = memo(({
           onKeyDown={handleKeyDown}
           placeholder={isLoading ? "AI is thinking..." : placeholder}
           disabled={disabled || isLoading}
-          rows={rows}
-          className="w-full px-4 py-3 pr-12 bg-transparent resize-none
-                   text-[15px] leading-[24px] placeholder-foreground-muted/60
+          rows={1}
+          className="w-full px-3 py-2.5 pr-12 bg-transparent resize-none
+                   text-[14px] leading-[22px] placeholder-foreground-muted/60
                    focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed
-                   transition-all duration-200"
+                   overflow-y-auto"
           style={{
-            minHeight: '48px',
-            maxHeight: '240px'
+            height: '40px',
+            minHeight: '40px',
+            maxHeight: '200px'
           }}
         />
         
