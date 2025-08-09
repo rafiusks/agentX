@@ -65,6 +65,11 @@ func SetupRoutesWithAuth(app *fiber.App, svc *services.Services, authService *au
 	protected.Delete("/sessions/:id", handlers.DeleteSession(svc))
 	protected.Get("/sessions/:id/messages", handlers.GetSessionMessages(svc))
 	
+	// Summary management
+	summaryHandler := handlers.NewSummaryHandler(svc.Summary)
+	protected.Post("/sessions/:id/summary", summaryHandler.GenerateSummary)
+	protected.Get("/sessions/:id/summaries", summaryHandler.GetSummaries)
+	
 	// LLM service (NEW: General AI operations)
 	llmHandler := handlers.NewLLMHandler(svc.LLM)
 	llmHandler.RegisterRoutes(protected)

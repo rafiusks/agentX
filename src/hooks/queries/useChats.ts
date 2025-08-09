@@ -1,6 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../lib/api-client';
 import { useStreamingStore } from '../../stores/streaming.store';
+import { formatLLMError } from '../../utils/error-formatter';
+import { getContextConfig } from '../../config/context';
+import { selectImportantMessages } from '../../utils/message-importance';
+import { useContextStore } from '../../stores/context.store';
+import { buildContextWithSummaries } from './useSummaries';
+import { usePreferencesStore } from '../../stores/preferences.store';
 
 // Types
 export interface Chat {
@@ -31,6 +37,15 @@ export interface Message {
   functionCall?: {
     name: string;
     arguments: string;
+  };
+  // Importance scoring
+  importance?: number; // 0-1 score for message importance
+  importanceFlags?: {
+    hasCode?: boolean;
+    hasError?: boolean;
+    hasDecision?: boolean;
+    isUserCorrection?: boolean;
+    tokens?: number;
   };
 }
 
@@ -230,7 +245,13 @@ export const useSendMessage = () => {
  */
 export const useSendStreamingMessage = () => {
   const queryClient = useQueryClient();
-  const { startStreaming, appendToStream, finishStreaming } = useStreamingStore();
+  const { startStreaming, appendToStream, finishStreaming, setAbortController, setStreamError, setContextUsage } = useStreamingStore();
+  const { config: userContextConfig } = useContextStore();
+  const { getSystemPrompt, maxResponseTokens } = usePreferencesStore();
+  
+  // Track timeout for stuck streams and abort controller
+  let streamTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  let abortController: AbortController | null = null;
 
   return useMutation({
     mutationFn: async ({ chat_id, content, connection_id }: SendMessageRequest) => {
@@ -250,26 +271,160 @@ export const useSendStreamingMessage = () => {
         (old) => [...(old || []), userMessage]
       );
       
+      // Create abort controller for this stream
+      abortController = new AbortController();
+      setAbortController(abortController); // Store it in the streaming store
+      
       // Start streaming
       const messageId = `stream-${Date.now()}`;
       startStreaming(connection_id || 'default', messageId);
       
-      // Get existing messages for context
+      // Set a timeout to force-close stuck streams (3 minutes should be enough for most responses)
+      streamTimeoutId = setTimeout(() => {
+        console.warn('[useSendStreamingMessage] Stream timeout - forcing stream close');
+        const currentState = useStreamingStore.getState();
+        if (currentState.isStreaming) {
+          // Abort the request to stop backend processing
+          if (abortController) {
+            abortController.abort();
+            abortController = null;
+          }
+          
+          // Save any accumulated content before clearing
+          const content = currentState.streamBuffer;
+          if (content && content.trim()) {
+            const assistantMessage: Message = {
+              id: `msg-timeout-${Date.now()}`,
+              chat_id,
+              role: 'assistant',
+              content: content,
+              created_at: new Date().toISOString(),
+            };
+            
+            queryClient.setQueryData<Message[]>(
+              chatKeys.messages(chat_id),
+              (old) => [...(old || []), assistantMessage]
+            );
+          }
+          
+          // Force clear the streaming state
+          useStreamingStore.getState().clearStreaming();
+        }
+      }, 180000); // 3 minute timeout
+      
+      // Get existing messages for context with sliding window
       const existingMessages = queryClient.getQueryData<Message[]>(chatKeys.messages(chat_id)) || [];
-      const messages = [
-        ...existingMessages
-          .filter(m => {
-            // Exclude the temporary user message we just added
-            if (m.id === userMessage.id) return false;
-            // Only include messages with valid roles
-            return m.role && ['user', 'assistant', 'system'].includes(m.role) && m.content;
-          })
-          .map(m => ({
-            role: m.role,
-            content: m.content
-          })),
+      
+      // Fetch summaries for this session (synchronously from cache)
+      const summariesData = queryClient.getQueryData<any[]>(['summaries', 'session', chat_id]) || [];
+      
+      // Get provider type from current connection (if available)
+      // This is a simplified approach - you might want to get this from the connection data
+      const providerType = 'openai-compatible'; // Default, should be fetched from connection
+      
+      // Merge user preferences with provider defaults
+      const providerConfig = getContextConfig(providerType);
+      const contextConfig = {
+        ...providerConfig,
+        ...userContextConfig, // User preferences override provider defaults
+      };
+      
+      const MAX_CONTEXT_MESSAGES = contextConfig.maxMessages;
+      const MAX_CONTEXT_CHARS = contextConfig.maxCharacters;
+      
+      // Filter valid messages
+      const validMessages = existingMessages
+        .filter(m => {
+          // Exclude the temporary user message we just added
+          if (m.id === userMessage.id) return false;
+          // Only include messages with valid roles and content
+          // Exclude error messages from context
+          if (m.content?.startsWith('❌ Error:')) return false;
+          return m.role && ['user', 'assistant', 'system'].includes(m.role) && m.content;
+        });
+      
+      // Choose context selection strategy
+      let contextMessages: Message[];
+      let totalChars: number;
+      let includedSummary = false;
+      
+      // Try to use summaries if we have them and many messages
+      if (summariesData.length > 0 && validMessages.length > MAX_CONTEXT_MESSAGES) {
+        const summaryResult = buildContextWithSummaries(
+          validMessages,
+          summariesData,
+          MAX_CONTEXT_MESSAGES,
+          MAX_CONTEXT_CHARS
+        );
+        
+        contextMessages = summaryResult.contextMessages;
+        includedSummary = summaryResult.includedSummary;
+        totalChars = contextMessages.reduce((sum, m) => sum + (m.content?.length || 0), 0);
+      } 
+      // Use importance scoring if enabled (smart mode) and no summary
+      else if (contextConfig.useImportanceScoring && contextConfig.strategy === 'smart') {
+        // Use importance-based selection
+        contextMessages = selectImportantMessages(
+          validMessages,
+          MAX_CONTEXT_MESSAGES,
+          MAX_CONTEXT_CHARS / 4 // Convert chars to approximate tokens
+        );
+        totalChars = contextMessages.reduce((sum, m) => sum + (m.content?.length || 0), 0);
+      } else {
+        // Use sliding window (default)
+        contextMessages = validMessages.slice(-MAX_CONTEXT_MESSAGES);
+        
+        // Further trim if total content is too long
+        totalChars = contextMessages.reduce((sum, m) => sum + (m.content?.length || 0), 0);
+        while (totalChars > MAX_CONTEXT_CHARS && contextMessages.length > 2) {
+          // Remove oldest messages until we're under the limit
+          contextMessages = contextMessages.slice(1);
+          totalChars = contextMessages.reduce((sum, m) => sum + (m.content?.length || 0), 0);
+        }
+      }
+      
+      // Track context usage
+      const contextUsage = {
+        totalMessages: validMessages.length,
+        includedMessages: contextMessages.length,
+        characters: totalChars,
+        maxCharacters: MAX_CONTEXT_CHARS,
+        truncated: validMessages.length > contextMessages.length,
+        usingSummary: includedSummary
+      };
+      
+      // Set context usage in store for UI display
+      setContextUsage(contextUsage);
+      
+      // Log context usage for debugging
+      console.log(`[Context] Using ${contextMessages.length}/${validMessages.length} messages (${totalChars} chars)${includedSummary ? ' with summary' : ''}`);
+      
+      // Build the final message array
+      const messages = [];
+      
+      // Add system prompt based on user preferences
+      messages.push({
+        role: 'system',
+        content: getSystemPrompt()
+      });
+      
+      // If we have a summary, it's already included in contextMessages
+      // Otherwise add a truncation note if needed
+      if (!includedSummary && contextUsage.truncated) {
+        messages.push({
+          role: 'system',
+          content: `[Note: Previous ${validMessages.length - contextMessages.length} messages omitted to fit context window]`
+        });
+      }
+      
+      // Add the context messages (which may include summary)
+      messages.push(
+        ...contextMessages.map(m => ({
+          role: m.role,
+          content: m.content
+        })),
         { role: 'user', content }
-      ];
+      );
       
       // Use the streaming endpoint
       console.log('[useSendStreamingMessage] Sending streaming request with:', { 
@@ -279,19 +434,50 @@ export const useSendStreamingMessage = () => {
         connection_id 
       });
       
-      return apiClient.stream(`/chat/stream`, {
+      // Build request with optional max tokens
+      const requestBody: any = {
         session_id: chat_id,
         messages,
         preferences: {
           connection_id
         }
-      }, (chunk: any) => {
+      };
+      
+      // Add max tokens if set
+      if (maxResponseTokens) {
+        requestBody.max_tokens = maxResponseTokens;
+      }
+      
+      return apiClient.stream(`/chat/stream`, requestBody, (chunk: any) => {
         // Handle OpenAI-formatted streaming chunks
-        console.log('Stream chunk:', chunk);
-        
         // Skip invalid chunks
         if (!chunk || typeof chunk !== 'object') {
           console.warn('Invalid chunk received:', chunk);
+          return;
+        }
+        
+        // Check for error in chunk
+        if (chunk.error) {
+          console.error('Stream chunk error:', chunk.error);
+          const errorMessage = formatLLMError(chunk.error);
+          setStreamError(errorMessage);
+          
+          // Add error to chat
+          const errorMsg: Message = {
+            id: `error-chunk-${Date.now()}`,
+            chat_id,
+            role: 'assistant', 
+            content: `❌ Error: ${errorMessage}`,
+            created_at: new Date().toISOString(),
+          };
+          
+          queryClient.setQueryData<Message[]>(
+            chatKeys.messages(chat_id),
+            (old) => [...(old || []), errorMsg]
+          );
+          
+          // Clear streaming
+          useStreamingStore.getState().clearStreaming();
           return;
         }
         
@@ -305,6 +491,14 @@ export const useSendStreamingMessage = () => {
           
           // Handle finish - only process if we have accumulated content
           else if (choice.finish_reason === 'stop') {
+            console.log('[useSendStreamingMessage] Received finish_reason: stop');
+            
+            // Clear the timeout since stream completed normally
+            if (streamTimeoutId) {
+              clearTimeout(streamTimeoutId);
+              streamTimeoutId = null;
+            }
+            
             const content = useStreamingStore.getState().streamBuffer;
             if (content && content.trim()) {
               // Add complete message to cache
@@ -326,16 +520,102 @@ export const useSendStreamingMessage = () => {
             }
             
             // Clear streaming state after adding to cache
+            console.log('[useSendStreamingMessage] Clearing streaming state');
             useStreamingStore.getState().clearStreaming();
           }
         }
       }, (error: Error) => {
         console.error('Stream error:', error);
+        
+        // Set error in the store so it can be displayed
+        const errorMessage = formatLLMError(error);
+        setStreamError(errorMessage);
+        
+        // Add error message to chat
+        const errorMsg: Message = {
+          id: `error-${Date.now()}`,
+          chat_id,
+          role: 'assistant',
+          content: `❌ Error: ${errorMessage}`,
+          created_at: new Date().toISOString(),
+        };
+        
+        queryClient.setQueryData<Message[]>(
+          chatKeys.messages(chat_id),
+          (old) => [...(old || []), errorMsg]
+        );
+        
+        // Clear timeout on error
+        if (streamTimeoutId) {
+          clearTimeout(streamTimeoutId);
+          streamTimeoutId = null;
+        }
         finishStreaming();
-      });
+      }, () => {
+        // onComplete callback - called when stream ends (either by [DONE] or naturally)
+        console.log('[useSendStreamingMessage] Stream completed via onComplete callback');
+        
+        // Clear timeout since stream completed
+        if (streamTimeoutId) {
+          clearTimeout(streamTimeoutId);
+          streamTimeoutId = null;
+        }
+        
+        // Save any accumulated content
+        const currentState = useStreamingStore.getState();
+        const content = currentState.streamBuffer;
+        
+        if (content && content.trim() && currentState.isStreaming) {
+          // Add complete message to cache if not already added
+          const assistantMessage: Message = {
+            id: `msg-complete-${Date.now()}`,
+            chat_id,
+            role: 'assistant',
+            content,
+            created_at: new Date().toISOString(),
+          };
+          
+          queryClient.setQueryData<Message[]>(
+            chatKeys.messages(chat_id),
+            (old) => [...(old || []), assistantMessage]
+          );
+          
+          // Invalidate chat list to update timestamps
+          queryClient.invalidateQueries({ queryKey: chatKeys.lists() });
+        }
+        
+        // Clear streaming state
+        useStreamingStore.getState().clearStreaming();
+      }, abortController?.signal); // Pass the abort signal to enable cancellation
     },
-    onError: (error) => {
+    onError: (error, variables) => {
       console.error('Mutation error:', error);
+      
+      // Extract and format error message
+      const errorMessage = formatLLMError(error);
+      
+      // Set error in store
+      setStreamError(errorMessage);
+      
+      // Add error message to chat
+      const errorMsg: Message = {
+        id: `error-${Date.now()}`,
+        chat_id: variables.chat_id,
+        role: 'assistant',
+        content: `❌ Error: ${errorMessage}`,
+        created_at: new Date().toISOString(),
+      };
+      
+      queryClient.setQueryData<Message[]>(
+        chatKeys.messages(variables.chat_id),
+        (old) => [...(old || []), errorMsg]
+      );
+      
+      // Clear timeout on error
+      if (streamTimeoutId) {
+        clearTimeout(streamTimeoutId);
+        streamTimeoutId = null;
+      }
       finishStreaming();
     },
   });

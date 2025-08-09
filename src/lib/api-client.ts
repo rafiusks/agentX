@@ -121,12 +121,14 @@ class ApiClient {
     });
   }
 
-  // Special method for streaming responses (SSE)
+  // Special method for streaming responses (SSE) with cancellation support
   async stream(
     endpoint: string,
     data?: unknown,
     onMessage?: (message: string) => void,
-    onError?: (error: Error) => void
+    onError?: (error: Error) => void,
+    onComplete?: () => void,
+    abortSignal?: AbortSignal
   ): Promise<void> {
     console.log('[ApiClient.stream] Starting stream to:', endpoint, 'with data:', data);
     const token = localStorage.getItem('access_token');
@@ -139,6 +141,7 @@ class ApiClient {
         ...(token && { 'Authorization': `Bearer ${token}` }),
       },
       body: data ? JSON.stringify(data) : undefined,
+      signal: abortSignal, // Pass the abort signal to fetch
     });
 
     if (!response.ok) {
@@ -172,21 +175,30 @@ class ApiClient {
             const data = line.slice(6);
             if (data === '[DONE]') {
               console.log('[ApiClient.stream] Received [DONE], ending stream');
+              onComplete?.();
               return;
             }
             try {
               const parsed = JSON.parse(data);
-              console.log('[ApiClient.stream] Parsed chunk:', parsed);
               onMessage?.(parsed);
             } catch (e) {
               // If not JSON, pass raw data
-              console.log('[ApiClient.stream] Raw data chunk:', data);
               onMessage?.(data);
             }
           }
         }
       }
+      // If we exit the loop without receiving [DONE], call onComplete
+      console.log('[ApiClient.stream] Stream ended without [DONE] signal');
+      onComplete?.();
     } catch (error) {
+      // Check if this was an abort
+      if ((error as Error).name === 'AbortError') {
+        console.log('[ApiClient.stream] Stream aborted by user');
+        onComplete?.(); // Still call onComplete for cleanup
+        return; // Don't throw or call onError for user-initiated aborts
+      }
+      
       onError?.(error as Error);
       throw error;
     } finally {

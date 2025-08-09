@@ -7,7 +7,7 @@
     @apply border border-blue-500/[0.12];
     @apply rounded-2xl px-6 py-5; /* More internal padding */
     @apply text-[16px]; /* Slightly larger for better readability */
-    @apply max-w-[680px];
+    @apply max-w-[1200px];
     @apply transition-all duration-200;
     line-height: 1.75;
     letter-spacing: 0.012em;
@@ -22,7 +22,7 @@
     @apply border border-border-subtle/50;
     @apply rounded-2xl px-6 py-5; /* Consistent padding with user messages */
     @apply shadow-sm;
-    @apply max-w-[680px];
+    @apply max-w-[1200px];
     @apply transition-all duration-200;
   }
   
@@ -34,7 +34,7 @@
     @apply bg-amber-500/[0.05];
     @apply border border-amber-500/[0.10];
     @apply rounded-2xl px-5 py-4;
-    @apply max-w-[680px];
+    @apply max-w-[1200px];
   }
   
   /* Message content typography - optimized for reading */
@@ -249,7 +249,7 @@
   }
   
   .chat-messages-wrapper {
-    @apply max-w-4xl mx-auto;
+    @apply max-w-6xl mx-auto;
     @apply space-y-8; /* Increased from space-y-6 */
   }
 }

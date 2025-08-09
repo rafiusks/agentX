@@ -5,6 +5,7 @@ import (
 	"fmt"
 	
 	"github.com/jmoiron/sqlx"
+	"github.com/agentx/agentx-backend/internal/db"
 	"github.com/agentx/agentx-backend/internal/llm"
 	"github.com/agentx/agentx-backend/internal/providers"
 	"github.com/agentx/agentx-backend/internal/repository"
@@ -44,6 +45,7 @@ type Services struct {
 	Connection    *ConnectionService
 	ContextMemory *ContextMemoryService
 	Config        *ConfigService
+	Summary       *SummaryService   // Summary generation service
 	
 	// Legacy services (keeping minimal for compatibility)
 	Chat      *ChatService        // DEPRECATED: Use Orchestrator (kept for backwards compatibility)
@@ -52,7 +54,7 @@ type Services struct {
 
 // NewServices creates all service instances
 func NewServices(
-	db *sqlx.DB,
+	sqlDB *sqlx.DB,
 	providers *providers.Registry,
 	sessionRepo repository.SessionRepository,
 	messageRepo repository.MessageRepository,
@@ -60,7 +62,7 @@ func NewServices(
 	connectionRepo repository.ConnectionRepository,
 ) *Services {
 	configService := NewConfigService(configRepo)
-	contextMemory := NewContextMemoryService(db)
+	contextMemory := NewContextMemoryService(sqlDB)
 	
 	// Create LLM Gateway with proper initialization FIRST
 	fmt.Printf("[Services] Initializing LLM Gateway with %d providers\n", len(providers.GetAll()))
@@ -100,6 +102,15 @@ func NewServices(
 	// Wire up the session provider with the orchestrator
 	sessionProvider.orchestrator = orchestrator
 	
+	// Create summary service - reuse the existing llmService
+	database := db.NewDatabaseFromSQLX(sqlDB) // Create database wrapper for summary service
+	summaryService := NewSummaryService(database, &LLMService{
+		gateway:       gateway,
+		sessionRepo:   sessionRepo,
+		messageRepo:   messageRepo,
+		contextMemory: contextMemory,
+	})
+	
 	return &Services{
 		// Primary service
 		Orchestrator: orchestrator,
@@ -110,6 +121,7 @@ func NewServices(
 		Connection:    connectionService,
 		ContextMemory: contextMemory,
 		Config:        configService,
+		Summary:       summaryService,
 		
 		// Minimal legacy services for compatibility
 		Chat:      NewChatService(providers, sessionRepo, messageRepo),

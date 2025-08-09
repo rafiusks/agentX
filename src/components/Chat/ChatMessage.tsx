@@ -1,16 +1,20 @@
+import { memo } from 'react'
 import { User, Bot, Cpu, Code } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { useUIStore } from '../../stores/ui.store'
 import { FunctionCall } from '../FunctionCall'
 import { SimpleMessageActions } from './SimpleMessageActions'
 import { CodeBlock } from './CodeBlock'
+import { formatCodeInText } from '../../utils/code-detection'
 import type { Message } from '../../hooks/queries/useChats'
 
 interface ChatMessageProps {
   message: Message
 }
 
-export function ChatMessage({ message }: ChatMessageProps) {
+// Memoize the component to prevent unnecessary re-renders
+export const ChatMessage = memo(function ChatMessage({ message }: ChatMessageProps) {
   const isUser = message.role === 'user'
   const isFunction = message.role === 'function'
   const isAssistant = message.role === 'assistant'
@@ -68,6 +72,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
         ) : (
           <div className="prose-chat">
             <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
               components={{
                 h1: ({ children }) => <h1 className="text-xl font-semibold mt-6 mb-3 text-foreground-primary">{children}</h1>,
                 h2: ({ children }) => <h2 className="text-lg font-semibold mt-5 mb-2.5 text-foreground-primary">{children}</h2>,
@@ -114,9 +119,41 @@ export function ChatMessage({ message }: ChatMessageProps) {
                     {children}
                   </a>
                 ),
+                table: ({ children }) => (
+                  <div className="overflow-x-auto my-4">
+                    <table className="w-full border-collapse">
+                      {children}
+                    </table>
+                  </div>
+                ),
+                thead: ({ children }) => (
+                  <thead className="bg-background-tertiary/50">
+                    {children}
+                  </thead>
+                ),
+                tbody: ({ children }) => (
+                  <tbody>
+                    {children}
+                  </tbody>
+                ),
+                tr: ({ children }) => (
+                  <tr className="border-b border-border-subtle/30 even:bg-background-secondary/30">
+                    {children}
+                  </tr>
+                ),
+                th: ({ children }) => (
+                  <th className="px-4 py-2 text-left font-semibold text-foreground-primary border border-border-subtle/50">
+                    {children}
+                  </th>
+                ),
+                td: ({ children }) => (
+                  <td className="px-4 py-2 border border-border-subtle/30">
+                    {children}
+                  </td>
+                ),
               }}
             >
-              {message.content || (message.isStreaming ? '...' : '')}
+              {formatCodeInText(message.content || (message.isStreaming ? '...' : ''))}
             </ReactMarkdown>
           </div>
         )}
@@ -151,4 +188,4 @@ export function ChatMessage({ message }: ChatMessageProps) {
       )}
     </div>
   )
-}
+})

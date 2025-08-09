@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect, KeyboardEvent, ChangeEvent } from 'react';
-import { Send, Loader2 } from 'lucide-react';
+import { useState, useRef, useEffect, KeyboardEvent, ChangeEvent, memo } from 'react';
+import { Send, Loader2, Square } from 'lucide-react';
+import { useStreamingStore } from '../../stores/streaming.store';
 
 interface SimpleMessageInputProps {
   value: string;
@@ -10,7 +11,7 @@ interface SimpleMessageInputProps {
   placeholder?: string;
 }
 
-export const SimpleMessageInput = ({
+export const SimpleMessageInput = memo(({
   value,
   onChange,
   onSubmit,
@@ -20,6 +21,7 @@ export const SimpleMessageInput = ({
 }: SimpleMessageInputProps) => {
   const [rows, setRows] = useState(1);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { isStreaming, abortStream } = useStreamingStore();
   
   // Auto-resize textarea based on content
   useEffect(() => {
@@ -79,25 +81,41 @@ export const SimpleMessageInput = ({
           }}
         />
         
-        <button
-          onClick={handleSubmit}
-          disabled={disabled || isLoading || !value.trim()}
-          className={`
-            absolute bottom-2 right-2 p-2 rounded-lg
-            transition-all duration-200 transform
-            ${!disabled && !isLoading && value.trim()
-              ? 'bg-accent-blue text-white hover:bg-accent-blue/90 hover:scale-105 active:scale-95' 
-              : 'bg-background-tertiary text-foreground-muted cursor-not-allowed'
-            }
-          `}
-          title="Send message (Enter)"
-        >
-          {isLoading ? (
-            <Loader2 size={18} className="animate-spin" />
-          ) : (
-            <Send size={18} />
-          )}
-        </button>
+        {/* Show stop button when streaming, send button otherwise */}
+        {isStreaming ? (
+          <button
+            onClick={() => {
+              console.log('[SimpleMessageInput] Force stopping stream and aborting request');
+              abortStream(); // This will abort the fetch request and clear the stream
+            }}
+            className="absolute bottom-2 right-2 p-2 rounded-lg
+                     bg-red-500 text-white hover:bg-red-600
+                     transition-all duration-200 transform hover:scale-105 active:scale-95"
+            title="Stop streaming (Escape)"
+          >
+            <Square size={18} />
+          </button>
+        ) : (
+          <button
+            onClick={handleSubmit}
+            disabled={disabled || isLoading || !value.trim()}
+            className={`
+              absolute bottom-2 right-2 p-2 rounded-lg
+              transition-all duration-200 transform
+              ${!disabled && !isLoading && value.trim()
+                ? 'bg-accent-blue text-white hover:bg-accent-blue/90 hover:scale-105 active:scale-95' 
+                : 'bg-background-tertiary text-foreground-muted cursor-not-allowed'
+              }
+            `}
+            title="Send message (Enter)"
+          >
+            {isLoading ? (
+              <Loader2 size={18} className="animate-spin" />
+            ) : (
+              <Send size={18} />
+            )}
+          </button>
+        )}
       </div>
       
       {/* Simple keyboard hint */}
@@ -108,4 +126,4 @@ export const SimpleMessageInput = ({
       )}
     </div>
   );
-};
+});

@@ -443,4 +443,52 @@ func (s *LLMService) convertCapabilities(caps []string) providers.Capabilities {
 	return result
 }
 
+// Complete generates an LLM completion for internal services
+func (s *LLMService) Complete(ctx context.Context, req *llm.CompletionRequest) (*llm.CompletionResponse, error) {
+	// For summary tasks, we use a simple completion without session context
+	if req.Task == "summarize" {
+		// Extract the message content from the context
+		messagesContent, ok := req.Context["messages"].(string)
+		if !ok {
+			return nil, fmt.Errorf("messages content not found in context")
+		}
+
+		// Create a gateway request
+		gatewayReq := &llm.Request{
+			Messages: []llm.Message{
+				{
+					Role:    "user",
+					Content: messagesContent,
+				},
+			},
+			Temperature: req.Parameters.Temperature,
+			MaxTokens:   req.Parameters.MaxTokens,
+		}
+
+		// Send through gateway
+		resp, err := s.gateway.Complete(ctx, gatewayReq)
+		if err != nil {
+			return nil, fmt.Errorf("gateway error: %w", err)
+		}
+
+		// Convert llm.Usage to TaskUsage
+		var taskUsage *llm.TaskUsage
+		if resp.Usage.TotalTokens > 0 {
+			taskUsage = &llm.TaskUsage{
+				PromptTokens:     resp.Usage.PromptTokens,
+				CompletionTokens: resp.Usage.CompletionTokens,
+				TotalTokens:      resp.Usage.TotalTokens,
+			}
+		}
+		
+		return &llm.CompletionResponse{
+			Result:   resp.Content,
+			Provider: resp.Provider,
+			Usage:    taskUsage,
+		}, nil
+	}
+
+	return nil, fmt.Errorf("unsupported task: %s", req.Task)
+}
+
 // Helper functions for creating pointers are defined in unified_chat.go
