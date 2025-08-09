@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Auth</title>
+</head>
+<body>
+    <h1>Auth Token Test</h1>
+    <button onclick="checkToken()">Check Token</button>
+    <button onclick="clearToken()">Clear Token</button>
+    <button onclick="setFakeToken()">Set Fake Token</button>
+    <div id="result"></div>
+    
+    <script>
+        function checkToken() {
+            const token = localStorage.getItem('access_token');
+            document.getElementById('result').innerHTML = 
+                `Token exists: ${!!token}<br>Token value: ${token || 'none'}`;
+        }
+        
+        function clearToken() {
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('refresh_token');
+            document.getElementById('result').innerHTML = 'Tokens cleared';
+        }
+        
+        function setFakeToken() {
+            localStorage.setItem('access_token', 'fake-token-123');
+            document.getElementById('result').innerHTML = 'Fake token set';
+        }
+    </script>
+</body>
+</html>

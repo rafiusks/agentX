@@ -64,13 +64,13 @@ export const useChatStore = create<ChatUIState>()(
       createSession: async () => {
         try {
           // Create a new session through the API
-          const response = await apiClient.post('/sessions', {
+          const response = await apiClient.post<{ id: string; ID?: string }>('/sessions', {
             title: 'New Chat'
           })
           
           // Set the new session as current
-          if (response && response.ID) {
-            set({ currentChatId: response.ID })
+          if (response && (response as any).ID) {
+            set({ currentChatId: (response as any).ID })
           } else if (response && response.id) {
             set({ currentChatId: response.id })
           }

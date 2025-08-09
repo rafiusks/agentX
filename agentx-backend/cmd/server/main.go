@@ -80,6 +80,7 @@ func main() {
 
 	// Initialize services
 	svc := services.NewServices(
+		db.DB,
 		providerRegistry,
 		sessionRepo,
 		messageRepo,

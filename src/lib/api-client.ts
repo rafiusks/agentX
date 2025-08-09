@@ -3,13 +3,15 @@
  * Replaces axios with a lightweight fetch wrapper
  */
 
+import type { ApiErrorResponse } from '@/types/api.types';
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1';
 
 export class ApiError extends Error {
   constructor(
     message: string,
     public status: number,
-    public data?: any
+    public data?: ApiErrorResponse
   ) {
     super(message);
     this.name = 'ApiError';
@@ -27,7 +29,7 @@ class ApiClient {
     this.baseURL = baseURL;
   }
 
-  private async request<T = any>(
+  private async request<T = unknown>(
     endpoint: string,
     config: RequestConfig = {}
   ): Promise<T> {
@@ -84,11 +86,11 @@ class ApiClient {
   }
 
   // HTTP method helpers
-  async get<T = any>(endpoint: string, params?: Record<string, string>): Promise<T> {
+  async get<T = unknown>(endpoint: string, params?: Record<string, string>): Promise<T> {
     return this.request<T>(endpoint, { method: 'GET', params });
   }
 
-  async post<T = any>(endpoint: string, data?: any, config?: RequestConfig): Promise<T> {
+  async post<T = unknown>(endpoint: string, data?: unknown, config?: RequestConfig): Promise<T> {
     return this.request<T>(endpoint, {
       ...config,
       method: 'POST',
@@ -96,7 +98,7 @@ class ApiClient {
     });
   }
 
-  async put<T = any>(endpoint: string, data?: any, config?: RequestConfig): Promise<T> {
+  async put<T = unknown>(endpoint: string, data?: unknown, config?: RequestConfig): Promise<T> {
     return this.request<T>(endpoint, {
       ...config,
       method: 'PUT',
@@ -104,7 +106,7 @@ class ApiClient {
     });
   }
 
-  async patch<T = any>(endpoint: string, data?: any, config?: RequestConfig): Promise<T> {
+  async patch<T = unknown>(endpoint: string, data?: unknown, config?: RequestConfig): Promise<T> {
     return this.request<T>(endpoint, {
       ...config,
       method: 'PATCH',
@@ -112,7 +114,7 @@ class ApiClient {
     });
   }
 
-  async delete<T = any>(endpoint: string, config?: RequestConfig): Promise<T> {
+  async delete<T = unknown>(endpoint: string, config?: RequestConfig): Promise<T> {
     return this.request<T>(endpoint, {
       ...config,
       method: 'DELETE',
@@ -122,7 +124,7 @@ class ApiClient {
   // Special method for streaming responses (SSE)
   async stream(
     endpoint: string,
-    data?: any,
+    data?: unknown,
     onMessage?: (message: string) => void,
     onError?: (error: Error) => void
   ): Promise<void> {
@@ -155,8 +157,11 @@ class ApiClient {
     }
 
     try {
-      while (true) {
-        const { done, value } = await reader.read();
+      let done = false;
+      while (!done) {
+        const result = await reader.read();
+        done = result.done;
+        const value = result.value;
         if (done) break;
 
         const chunk = decoder.decode(value, { stream: true });

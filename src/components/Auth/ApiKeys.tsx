@@ -74,7 +74,7 @@ export const ApiKeys: React.FC = () => {
           setFormData({ name: '', scopes: [], expiresIn: '90' });
           setSuccessMessage('API key created successfully');
         },
-        onError: (err: any) => {
+        onError: (err: Error) => {
           setError(err.message || 'Failed to create API key');
         }
       }

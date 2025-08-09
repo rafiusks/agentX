@@ -73,7 +73,7 @@ export const Profile: React.FC = () => {
           setSuccessMessage('Profile updated successfully!');
           setTimeout(() => setSuccessMessage(''), 3000);
         },
-        onError: (err: any) => {
+        onError: (err: Error) => {
           setError(err.message || 'Profile update failed');
         },
       }
@@ -125,7 +125,7 @@ export const Profile: React.FC = () => {
           setSuccessMessage('Password changed successfully!');
           setTimeout(() => setSuccessMessage(''), 3000);
         },
-        onError: (err: any) => {
+        onError: (err: Error) => {
           setError(err.message || 'Password change failed');
         },
       }

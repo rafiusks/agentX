@@ -142,7 +142,7 @@ export const Signup: React.FC = () => {
         full_name: formData.fullName || undefined,
       },
       {
-        onError: (err: any) => {
+        onError: (err: Error) => {
           setError(err.message || 'Signup failed. Please try again.');
         },
       }

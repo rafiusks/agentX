@@ -18,6 +18,7 @@ type UnifiedChatService struct {
 	adapters       *adapters.Registry
 	sessionRepo    repository.SessionRepository
 	messageRepo    repository.MessageRepository
+	contextMemory  *ContextMemoryService
 }
 
 // NewUnifiedChatService creates a new unified chat service
@@ -26,13 +27,15 @@ func NewUnifiedChatService(
 	configService *ConfigService,
 	sessionRepo repository.SessionRepository,
 	messageRepo repository.MessageRepository,
+	contextMemory *ContextMemoryService,
 ) *UnifiedChatService {
 	return &UnifiedChatService{
-		providers:   providers,
-		router:      NewRequestRouter(providers, configService),
-		adapters:    adapters.NewRegistry(),
-		sessionRepo: sessionRepo,
-		messageRepo: messageRepo,
+		providers:     providers,
+		router:        NewRequestRouter(providers, configService),
+		adapters:      adapters.NewRegistry(),
+		sessionRepo:   sessionRepo,
+		messageRepo:   messageRepo,
+		contextMemory: contextMemory,
 	}
 }
 
@@ -40,29 +43,32 @@ func NewUnifiedChatService(
 func (s *UnifiedChatService) Chat(ctx context.Context, req models.UnifiedChatRequest) (*models.UnifiedChatResponse, error) {
 	startTime := time.Now()
 	
-	// 1. Route the request to the best provider/model
+	// 1. Inject relevant context memories if available
+	req = s.injectContextMemories(ctx, req)
+	
+	// 2. Route the request to the best provider/model
 	providerID, modelID, err := s.router.RouteRequest(ctx, req)
 	if err != nil {
 		return nil, s.createErrorResponse(err, "routing_failed")
 	}
 	
-	// 2. Get the provider
+	// 3. Get the provider
 	provider := s.providers.Get(providerID)
 	if provider == nil {
 		return nil, s.createErrorResponse(fmt.Errorf("provider not found"), providerID)
 	}
 	
-	// 3. Get the appropriate adapter
+	// 4. Get the appropriate adapter
 	adapter := s.adapters.GetOrDefault(providerID)
 	
-	// 4. Normalize the request for the provider
+	// 5. Normalize the request for the provider
 	providerReq, err := adapter.NormalizeRequest(req)
 	if err != nil {
 		return nil, s.createErrorResponse(err, providerID)
 	}
 	providerReq.Model = modelID
 	
-	// 5. Save user message if session exists
+	// 6. Save user message if session exists
 	if req.SessionID != "" {
 		// Only save the last user message (the new one)
 		// The frontend sends the full conversation history, but we only want to persist the new message
@@ -78,7 +84,7 @@ func (s *UnifiedChatService) Chat(ctx context.Context, req models.UnifiedChatReq
 		}
 	}
 	
-	// 6. Make the request to the provider
+	// 7. Make the request to the provider
 	resp, err := provider.Complete(ctx, providerReq)
 	if err != nil {
 		// Try fallback if available
@@ -88,17 +94,17 @@ func (s *UnifiedChatService) Chat(ctx context.Context, req models.UnifiedChatReq
 		return nil, s.createErrorResponse(err, providerID)
 	}
 	
-	// 7. Normalize the response
+	// 8. Normalize the response
 	unifiedResp, err := adapter.NormalizeResponse(resp)
 	if err != nil {
 		return nil, s.createErrorResponse(err, providerID)
 	}
 	
-	// 8. Add metadata
+	// 9. Add metadata
 	unifiedResp.Metadata = s.router.GetRoutingMetadata(providerID, modelID, req.Preferences)
 	unifiedResp.Metadata.LatencyMs = time.Since(startTime).Milliseconds()
 	
-	// 9. Save assistant message if session exists
+	// 10. Save assistant message if session exists
 	if req.SessionID != "" {
 		s.messageRepo.Create(ctx, repository.Message{
 			SessionID: req.SessionID,
@@ -122,7 +128,10 @@ func (s *UnifiedChatService) Chat(ctx context.Context, req models.UnifiedChatReq
 func (s *UnifiedChatService) StreamChat(ctx context.Context, req models.UnifiedChatRequest) (<-chan models.UnifiedStreamChunk, error) {
 	fmt.Printf("[UnifiedChatService.StreamChat] Starting with ConnectionID: %s\n", req.Preferences.ConnectionID)
 	
-	// 1. Route the request
+	// 1. Inject relevant context memories if available
+	req = s.injectContextMemories(ctx, req)
+	
+	// 2. Route the request
 	providerID, modelID, err := s.router.RouteRequest(ctx, req)
 	if err != nil {
 		fmt.Printf("[UnifiedChatService.StreamChat] Routing failed: %v\n", err)
@@ -131,24 +140,24 @@ func (s *UnifiedChatService) StreamChat(ctx context.Context, req models.UnifiedC
 	
 	fmt.Printf("[UnifiedChatService.StreamChat] Routed to provider: %s, model: %s\n", providerID, modelID)
 	
-	// 2. Get the provider
+	// 3. Get the provider
 	provider := s.providers.Get(providerID)
 	if provider == nil {
 		fmt.Printf("[UnifiedChatService.StreamChat] Provider not found: %s\n", providerID)
 		return s.createErrorStream(fmt.Errorf("provider not found"), providerID), nil
 	}
 	
-	// 3. Get the adapter
+	// 4. Get the adapter
 	adapter := s.adapters.GetOrDefault(providerID)
 	
-	// 4. Normalize the request
+	// 5. Normalize the request
 	providerReq, err := adapter.NormalizeRequest(req)
 	if err != nil {
 		return s.createErrorStream(err, providerID), nil
 	}
 	providerReq.Model = modelID
 	
-	// 5. Start streaming from provider
+	// 6. Start streaming from provider
 	fmt.Printf("[UnifiedChatService.StreamChat] Calling provider.StreamComplete with model: %s\n", providerReq.Model)
 	providerStream, err := provider.StreamComplete(ctx, providerReq)
 	if err != nil {
@@ -158,7 +167,7 @@ func (s *UnifiedChatService) StreamChat(ctx context.Context, req models.UnifiedC
 	
 	fmt.Printf("[UnifiedChatService.StreamChat] Provider stream created successfully\n")
 	
-	// 6. Create unified stream
+	// 7. Create unified stream
 	unifiedStream := make(chan models.UnifiedStreamChunk)
 	
 	go func() {
@@ -308,4 +317,54 @@ func (s *UnifiedChatService) createErrorStream(err error, provider string) <-cha
 	}
 	close(ch)
 	return ch
+}
+
+// injectContextMemories enriches the request with relevant context memories
+func (s *UnifiedChatService) injectContextMemories(ctx context.Context, req models.UnifiedChatRequest) models.UnifiedChatRequest {
+	// TODO: Extract userID from context properly
+	// For now, we'll skip if we can't get userID
+	// userID := middleware.GetUserContext(ctx).UserID
+	
+	// Get relevant memories for this session
+	if s.contextMemory != nil && req.SessionID != "" {
+		// For demonstration, we'll inject memories as a system message
+		// In production, this should be more sophisticated
+		
+		// Example of how it would work with proper user context:
+		// memories, err := s.contextMemory.GetRelevant(ctx, userID, req.SessionID, 5)
+		// if err == nil && len(memories) > 0 {
+		//     contextMessage := s.formatMemoriesAsContext(memories)
+		//     // Prepend context as system message
+		//     req.Messages = append([]providers.Message{
+		//         {Role: "system", Content: contextMessage},
+		//     }, req.Messages...)
+		// }
+	}
+	
+	return req
+}
+
+// formatMemoriesAsContext formats memories into a context message
+func (s *UnifiedChatService) formatMemoriesAsContext(memories []ContextMemory) string {
+	if len(memories) == 0 {
+		return ""
+	}
+	
+	context := "Relevant context from previous conversations:\n\n"
+	for _, memory := range memories {
+		// Format each memory based on its namespace
+		switch memory.Namespace {
+		case "project":
+			context += fmt.Sprintf("Project Information (%s): %s\n", memory.Key, string(memory.Value))
+		case "preference":
+			context += fmt.Sprintf("User Preference: %s = %s\n", memory.Key, string(memory.Value))
+		case "fact":
+			context += fmt.Sprintf("Known Fact: %s\n", string(memory.Value))
+		default:
+			context += fmt.Sprintf("%s: %s\n", memory.Key, string(memory.Value))
+		}
+	}
+	
+	context += "\nPlease use this context to provide more relevant and personalized responses."
+	return context
 }

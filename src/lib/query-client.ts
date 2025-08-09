@@ -39,7 +39,7 @@ export const queryClient = new QueryClient({
 
 // Global error handler for auth issues
 queryClient.setMutationDefaults(['auth'], {
-  mutationFn: async (_variables: any) => {
+  mutationFn: async (_variables: unknown) => {
     throw new Error('Mutation function not implemented');
   },
   onError: (error) => {
@@ -59,16 +59,16 @@ export const invalidateQueries = (queryKey: string[]) => {
 };
 
 // Helper to prefetch queries
-export const prefetchQuery = (queryKey: string[], queryFn: () => Promise<any>) => {
+export const prefetchQuery = (queryKey: string[], queryFn: () => Promise<unknown>) => {
   return queryClient.prefetchQuery({ queryKey, queryFn });
 };
 
 // Helper to get cached data
-export const getCachedData = <T = any>(queryKey: string[]): T | undefined => {
+export const getCachedData = <T = unknown>(queryKey: string[]): T | undefined => {
   return queryClient.getQueryData<T>(queryKey);
 };
 
 // Helper to set cached data
-export const setCachedData = <T = any>(queryKey: string[], data: T) => {
+export const setCachedData = <T = unknown>(queryKey: string[], data: T) => {
   queryClient.setQueryData(queryKey, data);
 };

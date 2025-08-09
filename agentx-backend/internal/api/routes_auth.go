@@ -87,6 +87,16 @@ func SetupRoutesWithAuth(app *fiber.App, svc *services.Services, authService *au
 	protected.Get("/settings", handlers.GetSettings(svc))
 	protected.Put("/settings", handlers.UpdateSettings(svc))
 	
+	// Context Memory management
+	contextHandlers := handlers.NewContextMemoryHandlers(svc.ContextMemory)
+	protected.Post("/context/memory", contextHandlers.StoreMemory)
+	protected.Get("/context/memory", contextHandlers.ListMemories)
+	protected.Get("/context/memory/search", contextHandlers.SearchMemories)
+	protected.Get("/context/memory/relevant/:sessionId", contextHandlers.GetRelevantMemories)
+	protected.Get("/context/memory/:namespace/:key", contextHandlers.GetMemory)
+	protected.Delete("/context/memory/:namespace/:key", contextHandlers.DeleteMemory)
+	protected.Put("/context/memory/:id/importance", contextHandlers.UpdateImportance)
+	
 	// API Key management
 	protected.Get("/api-keys", handlers.ListAPIKeys(authService))
 	protected.Post("/api-keys", handlers.CreateAPIKey(authService))

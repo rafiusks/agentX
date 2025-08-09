@@ -79,7 +79,7 @@ export interface Model {
 }
 
 export interface Settings {
-  providers: Record<string, any>;
+  providers: Record<string, unknown>;
   default_provider: string;
   default_model: string;
 }
@@ -99,7 +99,7 @@ export class AgentXAPI {
     return response.json();
   }
 
-  async updateProviderConfig(providerId: string, config: any): Promise<void> {
+  async updateProviderConfig(providerId: string, config: Record<string, unknown>): Promise<void> {
     const response = await fetch(`${this.baseURL}/providers/${providerId}/config`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -155,8 +155,8 @@ export class AgentXAPI {
     options?: {
       temperature?: number;
       max_tokens?: number;
-      functions?: any[];
-      tools?: any[];
+      functions?: Array<{ name: string; description: string; parameters: unknown }>;
+      tools?: Array<{ type: string; function: { name: string; description: string; parameters: unknown } }>;
     }
   ): Promise<CompletionResponse> {
     const response = await fetch(`${this.baseURL}/chat/sessions/${sessionId}/messages`, {
@@ -182,8 +182,8 @@ export class AgentXAPI {
     options?: {
       temperature?: number;
       max_tokens?: number;
-      functions?: any[];
-      tools?: any[];
+      functions?: Array<{ name: string; description: string; parameters: unknown }>;
+      tools?: Array<{ type: string; function: { name: string; description: string; parameters: unknown } }>;
     },
     callbacks?: {
       onChunk?: (chunk: StreamChunk) => void;

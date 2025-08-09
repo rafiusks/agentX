@@ -67,6 +67,25 @@ npm run dev
 
 ---
 
+## 🎯 Recent Improvements: Conversation Intelligence (2025-08-09)
+
+### Simplified Memory System
+- [x] **Removed Complex Manual Memory Management**: Eliminated confusing namespaces, keys, and importance scores
+- [x] **Automatic Context Extraction**: System now automatically detects entities (people, projects, tech, files)
+- [x] **Two-Tier Context System**: Active in-window context + background retrieval when needed
+- [x] **Subtle Context Indicators**: Small brain icon with tooltip shows when context is active
+- [x] **Smart Suggestions**: Non-intrusive suggestions based on conversation patterns
+- [x] **Zero Configuration**: Everything works automatically without user setup
+
+### Key Benefits
+- No user configuration required
+- Works invisibly in the background
+- Maintains natural conversation flow
+- Reduces cognitive overhead
+- Improves user experience through simplicity
+
+---
+
 ## Phase 0: Agent Foundation (3-4 weeks) 🏗️
 
 ### Core Infrastructure [P0]

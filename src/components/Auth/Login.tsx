@@ -35,7 +35,7 @@ export const Login: React.FC = () => {
         password: formData.password,
       },
       {
-        onError: (err: any) => {
+        onError: (err: Error) => {
           setError(err.message || 'Login failed. Please check your credentials.');
         },
       }

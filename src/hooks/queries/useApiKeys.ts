@@ -13,21 +13,21 @@ export interface ApiKey {
   last_used_at?: string;
   created_at: string;
   updated_at: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface CreateApiKeyRequest {
   provider: ApiKey['provider'];
   api_key: string;
   label?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface UpdateApiKeyRequest {
   id: string;
   label?: string;
   is_active?: boolean;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 // Query keys
@@ -160,7 +160,7 @@ export const useTestApiKey = () => {
     mutationFn: async (id: string) => {
       return apiClient.post<{ 
         success: boolean; 
-        response?: any; 
+        response?: unknown; 
         error?: string;
         latency_ms?: number;
       }>(`/api-keys/${id}/test`);

@@ -1,12 +1,17 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, Loader2 } from 'lucide-react'
+import { Send, Loader2, SplitSquareHorizontal } from 'lucide-react'
 import { useChatStore } from '../../stores/chat.store'
 import { useUIStore } from '../../stores/ui.store'
 import { useStreamingStore } from '../../stores/streaming.store'
+import { useCanvasStore } from '../../stores/canvas.store'
 import { useChats, useChat, useChatMessages, useSendStreamingMessage, type Message } from '../../hooks/queries/useChats'
 import { useDefaultConnection } from '../../hooks/queries/useConnections'
 import { ChatMessage } from './ChatMessage'
 import { ChatSidebar } from './ChatSidebar'
+import { SmartSuggestions } from './SmartSuggestions'
+import { Canvas } from '../Canvas/Canvas'
+import { Button } from '../ui/button'
+import { FEATURES } from '@/config/features'
 
 export function Chat() {
   const [input, setInput] = useState('')
@@ -27,6 +32,7 @@ export function Chat() {
   
   const { mode } = useUIStore()
   const { streamingMessage, isStreaming } = useStreamingStore()
+  const { isCanvasOpen, toggleCanvas } = useCanvasStore()
   
   // Query hooks
   const { data: chats = [] } = useChats()
@@ -155,7 +161,7 @@ export function Chat() {
     <div className="flex w-full h-full overflow-hidden">
       {showSidebar && <ChatSidebar />}
       
-      <div className="flex-1 flex flex-col h-full">
+      <div className={`flex-1 flex flex-col h-full ${isCanvasOpen ? 'mr-[50%]' : ''}`}>
         {/* Show empty state if no chat is selected */}
         {!currentChatId ? (
           <div className="flex-1 flex items-center justify-center">
@@ -171,9 +177,36 @@ export function Chat() {
           </div>
         ) : (
           <>
+            {/* Chat Header with Memory Indicator */}
+            <div className="border-b border-border-subtle px-4 py-2 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-medium text-foreground-primary">
+                  Chat Session
+                </h3>
+                {currentChatId && (
+                  <span className="text-xs text-foreground-tertiary">
+                    ID: {currentChatId.slice(0, 8)}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-3">
+                {FEATURES.CANVAS_MODE && (
+                  <Button
+                    variant={isCanvasOpen ? "default" : "ghost"}
+                    size="sm"
+                    onClick={toggleCanvas}
+                    title="Toggle Canvas"
+                  >
+                    <SplitSquareHorizontal size={16} />
+                    <span className="ml-2">Canvas</span>
+                  </Button>
+                )}
+              </div>
+            </div>
+            
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto px-4 py-6">
-              <div className="max-w-4xl mx-auto space-y-6">
+            <div className="chat-container chat-scroll-smooth">
+              <div className="chat-messages-wrapper">
                 {allMessages.length === 0 ? (
                   <div className="flex items-center justify-center h-full">
                     <div className="text-center space-y-2">
@@ -232,9 +265,20 @@ export function Chat() {
             </div>
           </div>
         </form>
+        
+        {/* Smart Suggestions */}
+        <SmartSuggestions 
+          onSuggestionClick={(suggestion) => {
+            setInput(suggestion);
+            inputRef.current?.focus();
+          }}
+        />
           </>
         )}
       </div>
+      
+      {/* Canvas */}
+      {FEATURES.CANVAS_MODE && <Canvas />}
     </div>
   )
 }

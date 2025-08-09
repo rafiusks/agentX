@@ -8,7 +8,7 @@ interface FunctionCallProps {
 }
 
 export const FunctionCall: React.FC<FunctionCallProps> = ({ name, arguments: args, isExecuting }) => {
-  let parsedArgs: any
+  let parsedArgs: unknown
   try {
     parsedArgs = JSON.parse(args)
   } catch {
@@ -26,7 +26,7 @@ export const FunctionCall: React.FC<FunctionCallProps> = ({ name, arguments: arg
       <div className="ml-4">
         <div className="text-xs text-foreground-secondary mb-1">Arguments:</div>
         <pre className="text-xs font-mono text-foreground-secondary bg-background-secondary rounded p-2 overflow-x-auto">
-          {typeof parsedArgs === 'object' ? JSON.stringify(parsedArgs, null, 2) : parsedArgs}
+          {typeof parsedArgs === 'object' ? JSON.stringify(parsedArgs, null, 2) : String(parsedArgs)}
         </pre>
       </div>
     </div>

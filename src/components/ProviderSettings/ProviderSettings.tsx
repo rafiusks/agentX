@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/use-toast';
 import { Loader2, Save, RefreshCw, Check, X } from 'lucide-react';
 import { api } from '@/services/api';
+import type { ProviderConfig } from '@/types/api.types';
 
 interface Provider {
   id: string;
@@ -91,7 +92,14 @@ export const ProviderSettings: React.FC<ProviderSettingsProps> = ({ onClose }) =
     
     try {
       const provider = providers[providerId];
-      await api.updateProviderConfig(providerId, provider);
+      // Extract only the config fields needed for the API
+      const config: ProviderConfig = {
+        api_key: provider.api_key,
+        base_url: provider.base_url,
+        model: provider.default_model,
+        models: provider.models,
+      };
+      await api.updateProviderConfig(providerId, config);
 
       toast({
         title: 'Success',

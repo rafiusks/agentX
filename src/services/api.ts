@@ -1,4 +1,5 @@
 // API service for communicating with the Go backend
+import type { ProviderConfig, AppSettings, StreamChunk } from '@/types/api.types';
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1';
 
 export interface ProviderInfo {
@@ -113,7 +114,7 @@ class ApiService {
     return this.fetch('/providers');
   }
 
-  async updateProviderConfig(providerId: string, config: any) {
+  async updateProviderConfig(providerId: string, config: ProviderConfig) {
     return this.fetch(`/providers/${providerId}/config`, {
       method: 'PUT',
       body: JSON.stringify(config),
@@ -138,7 +139,7 @@ class ApiService {
     });
   }
 
-  async streamChat(request: ChatRequest, onChunk: (chunk: any) => void) {
+  async streamChat(request: ChatRequest, onChunk: (chunk: StreamChunk) => void) {
     const response = await fetch(`${API_BASE_URL}/chat/stream`, {
       method: 'POST',
       headers: {
@@ -159,8 +160,11 @@ class ApiService {
       throw new Error('No response body');
     }
 
-    while (true) {
-      const { done, value } = await reader.read();
+    let done = false;
+    while (!done) {
+      const result = await reader.read();
+      done = result.done;
+      const value = result.value;
       if (done) break;
 
       const chunk = decoder.decode(value);
@@ -221,7 +225,7 @@ class ApiService {
     return this.fetch('/settings');
   }
 
-  async updateSettings(settings: any) {
+  async updateSettings(settings: AppSettings) {
     return this.fetch('/settings', {
       method: 'PUT',
       body: JSON.stringify(settings),
@@ -243,7 +247,7 @@ class ApiService {
   async createConnection(data: {
     provider_id: string;
     name: string;
-    config: any;
+    config: ProviderConfig;
   }) {
     return this.fetch('/connections', {
       method: 'POST',
@@ -251,7 +255,11 @@ class ApiService {
     });
   }
 
-  async updateConnection(id: string, updates: any) {
+  async updateConnection(id: string, updates: Partial<{
+    name: string;
+    config: ProviderConfig;
+    enabled: boolean;
+  }>) {
     return this.fetch(`/connections/${id}`, {
       method: 'PUT',
       body: JSON.stringify(updates),

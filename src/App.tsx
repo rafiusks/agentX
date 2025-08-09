@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Chat } from './components/Chat/Chat'
 import { ConnectionSelector } from './components/ConnectionSelector/ConnectionSelector'
 import { CommandPalette } from './components/CommandPalette/CommandPalette'
@@ -19,7 +19,7 @@ console.log('API methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(api
 function App() {
   console.log('App component rendering...');
   
-  const [connections, setConnections] = useState<any[]>([])
+  const [connections, setConnections] = useState<Array<{ id: string; name: string; provider_id: string; enabled: boolean }>>([])
   const [currentTab, setCurrentTab] = useState<'chat' | 'agents' | 'mcp' | 'settings'>('chat')
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
   const [showWelcome, setShowWelcome] = useState(false)
@@ -28,6 +28,25 @@ function App() {
   
   const { currentConnectionId, setCurrentConnectionId, createSession } = useChatStore()
   const { mode } = useUIStore()
+
+  const loadConnections = useCallback(async () => {
+    try {
+      console.log('Loading connections...');
+      const result = await api.listConnections()
+      console.log('Connections loaded:', result);
+      setConnections(result)
+      
+      // Set default connection if none selected
+      if (!currentConnectionId && result.length > 0) {
+        const enabledConnection = result.find((c: { enabled: boolean }) => c.enabled) || result[0]
+        if (enabledConnection) {
+          setCurrentConnectionId(enabledConnection.id)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load connections:', error)
+    }
+  }, [currentConnectionId, setCurrentConnectionId])
 
   useEffect(() => {
     // Check if this is first run
@@ -94,26 +113,7 @@ function App() {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [showHelp, commandPaletteOpen, createSession])
-
-  const loadConnections = async () => {
-    try {
-      console.log('Loading connections...');
-      const result = await api.listConnections()
-      console.log('Connections loaded:', result);
-      setConnections(result)
-      
-      // Set default connection if none selected
-      if (!currentConnectionId && result.length > 0) {
-        const enabledConnection = result.find((c: any) => c.enabled) || result[0]
-        if (enabledConnection) {
-          setCurrentConnectionId(enabledConnection.id)
-        }
-      }
-    } catch (error) {
-      console.error('Failed to load connections:', error)
-    }
-  }
+  }, [showHelp, commandPaletteOpen, createSession, loadConnections])
 
   console.log('App render - connections:', connections.length, 'currentConnectionId:', currentConnectionId);
   

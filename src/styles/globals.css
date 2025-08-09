@@ -1,9 +1,10 @@
+@import './typography.css';
+@import './animations.css';
+@import './chat.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-@import './typography.css';
-@import './animations.css';
 
 @layer base {
   :root {
@@ -19,8 +20,11 @@
     background-color: #0a0a0a;
     color: #ffffff;
     font-family: 'Inter', system-ui, sans-serif;
-    font-feature-settings: "cv11", "ss01";
+    font-feature-settings: "cv11", "ss01", "kern" 1; /* Added kerning */
     font-variation-settings: "opsz" 32;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
     min-height: 100vh;
   }
   
