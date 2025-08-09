@@ -22,7 +22,7 @@ function AppWithAuth() {
     if (refreshToken && !accessToken) {
       refreshMutation.mutate();
     }
-  }, []);
+  }, [refreshMutation]);
 
   return (
     <Router>

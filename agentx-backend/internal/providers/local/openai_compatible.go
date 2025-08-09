@@ -103,6 +103,9 @@ func (p *OpenAICompatibleProvider) StreamComplete(ctx context.Context, req provi
 				if choice.Delta.Content != "" {
 					chunk.Delta = choice.Delta.Content
 				}
+				
+				// Debug logging
+				fmt.Printf("[OpenAI Provider] StreamChunk - Delta: '%s', Role: '%s'\n", chunk.Delta, chunk.Role)
 
 				if choice.Delta.Role != "" {
 					chunk.Role = choice.Delta.Role

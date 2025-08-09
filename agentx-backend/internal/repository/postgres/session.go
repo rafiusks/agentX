@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -21,9 +22,10 @@ func NewSessionRepository(db *sqlx.DB) repository.SessionRepository {
 }
 
 // Create creates a new session
-func (r *SessionRepository) Create(ctx context.Context, userID uuid.UUID, session repository.Session) (string, error) {
-	session.ID = uuid.New().String()
-	session.UserID = userID
+func (r *SessionRepository) Create(ctx context.Context, session *repository.Session) error {
+	if session.ID == "" {
+		session.ID = uuid.New().String()
+	}
 	session.CreatedAt = time.Now()
 	session.UpdatedAt = time.Now()
 	
@@ -37,11 +39,7 @@ func (r *SessionRepository) Create(ctx context.Context, userID uuid.UUID, sessio
 	`
 	
 	_, err := r.db.NamedExecContext(ctx, query, session)
-	if err != nil {
-		return "", err
-	}
-	
-	return session.ID, nil
+	return err
 }
 
 // Get retrieves a session by ID
@@ -84,7 +82,10 @@ func (r *SessionRepository) List(ctx context.Context, userID uuid.UUID) ([]*repo
 
 // Update updates a session
 func (r *SessionRepository) Update(ctx context.Context, userID uuid.UUID, id string, updates map[string]interface{}) error {
-	updates["updated_at"] = time.Now()
+	now := time.Now()
+	updates["updated_at"] = now
+	
+	fmt.Printf("[SessionRepository.Update] Updating session %s for user %s at %v\n", id, userID.String(), now)
 	
 	// Build dynamic update query
 	setClause := ""
@@ -99,9 +100,19 @@ func (r *SessionRepository) Update(ctx context.Context, userID uuid.UUID, id str
 	}
 	
 	query := "UPDATE sessions SET " + setClause + " WHERE id = :id AND user_id = :user_id"
+	fmt.Printf("[SessionRepository.Update] Query: %s\n", query)
+	fmt.Printf("[SessionRepository.Update] Params: %+v\n", params)
 	
-	_, err := r.db.NamedExecContext(ctx, query, params)
-	return err
+	result, err := r.db.NamedExecContext(ctx, query, params)
+	if err != nil {
+		fmt.Printf("[SessionRepository.Update] Error: %v\n", err)
+		return err
+	}
+	
+	rowsAffected, _ := result.RowsAffected()
+	fmt.Printf("[SessionRepository.Update] Rows affected: %d\n", rowsAffected)
+	
+	return nil
 }
 
 // Delete deletes a session

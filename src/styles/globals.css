@@ -1,6 +1,7 @@
 @import './typography.css';
 @import './animations.css';
 @import './chat.css';
+@import './navigation.css';
 
 @tailwind base;
 @tailwind components;

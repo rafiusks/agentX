@@ -1,0 +1,28 @@
+diff --git a/agentx-backend/internal/api/handlers/sessions.go b/agentx-backend/internal/api/handlers/sessions.go
+index abc123..def456 100644
+--- a/agentx-backend/internal/api/handlers/sessions.go
++++ b/agentx-backend/internal/api/handlers/sessions.go
+@@ -5,6 +5,7 @@ import (
+ 	"github.com/gofiber/fiber/v2"
+ 	"github.com/rafaelconde/agentx/internal/repository"
+ 	"github.com/rafaelconde/agentx/internal/services"
++	"time"
+ )
+ 
+ // CreateMessageHandler handles POST /sessions/:id/messages
+@@ -210,6 +211,14 @@ func CreateMessageHandler(svc *services.Services) fiber.Handler {
+ 			})
+ 		}
+ 		
++		// Update session's UpdatedAt timestamp
++		err = svc.SessionRepo.Update(c.UserContext(), userID, sessionID, map[string]interface{}{
++			"updated_at": time.Now(),
++		})
++		if err != nil {
++			// Log error but don't fail the request
++			fmt.Printf("Failed to update session timestamp: %v\n", err)
++		}
++		
+ 		return c.JSON(fiber.Map{
+ 			"user_message": fiber.Map{
+ 				"id":      userMsgID,

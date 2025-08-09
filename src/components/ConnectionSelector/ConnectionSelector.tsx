@@ -1,15 +1,8 @@
 import { ChevronDown, Circle, Settings } from 'lucide-react'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
-import { useEffect, useState } from 'react'
-import { api } from '@/services/api'
-
-interface Connection {
-  id: string
-  provider_id: string
-  name: string
-  enabled: boolean
-  status: string
-}
+import { useEffect } from 'react'
+import { useConnections } from '@/hooks/queries/useConnections'
+import { useChatStore } from '@/stores/chat.store'
 
 interface ConnectionSelectorProps {
   currentConnectionId: string | null
@@ -32,43 +25,31 @@ const statusColors: Record<string, string> = {
 }
 
 export function ConnectionSelector({ currentConnectionId, onConnectionChange }: ConnectionSelectorProps) {
-  const [connections, setConnections] = useState<Connection[]>([])
-  const [loading, setLoading] = useState(true)
+  const { data: connections = [], isLoading: loading } = useConnections()
 
+  // Set default connection if none selected
   useEffect(() => {
-    loadConnections()
-  }, [])
-
-  const loadConnections = async () => {
-    try {
-      const result = await api.listConnections()
-      setConnections(result)
-      
-      // Set default connection if none selected
-      if (!currentConnectionId && result.length > 0) {
-        const enabledConnection = result.find((c: any) => c.enabled) || result[0]
-        if (enabledConnection) {
-          onConnectionChange(enabledConnection.id)
-        }
+    if (!currentConnectionId && connections.length > 0) {
+      // Try to find an active/enabled connection (handle both old and new API formats)
+      const activeConnection = connections.find((c: any) => c.is_active || c.enabled) || connections[0]
+      if (activeConnection) {
+        onConnectionChange(activeConnection.id)
       }
-    } catch (error) {
-      console.error('Failed to load connections:', error)
-    } finally {
-      setLoading(false)
     }
-  }
+  }, [currentConnectionId, connections, onConnectionChange])
 
   const current = connections.find(c => c.id === currentConnectionId)
   const hasConnections = connections.length > 0
 
-  // Group connections by provider
-  const groupedConnections = connections.reduce((acc, conn) => {
-    if (!acc[conn.provider_id]) {
-      acc[conn.provider_id] = []
+  // Group connections by provider (handle both old and new API formats)
+  const groupedConnections = connections.reduce((acc, conn: any) => {
+    const provider = conn.provider || conn.provider_id
+    if (!acc[provider]) {
+      acc[provider] = []
     }
-    acc[conn.provider_id].push(conn)
+    acc[provider].push(conn)
     return acc
-  }, {} as Record<string, Connection[]>)
+  }, {} as Record<string, any[]>)
 
   return (
     <DropdownMenu.Root>
@@ -79,7 +60,7 @@ export function ConnectionSelector({ currentConnectionId, onConnectionChange }: 
               <>
                 <Circle 
                   size={8} 
-                  className={`fill-current ${statusColors[current.status]}`}
+                  className={`fill-current ${statusColors[(current as any).status || 'connected']}`}
                 />
                 <span className="text-sm">
                   {current.name}
@@ -114,24 +95,24 @@ export function ConnectionSelector({ currentConnectionId, onConnectionChange }: 
                       className={`
                         flex items-center justify-between px-3 py-2.5 rounded-md text-sm
                         outline-none cursor-pointer transition-colors
-                        ${connection.enabled 
+                        ${(connection.is_active || connection.enabled) 
                           ? 'hover:bg-background-tertiary text-foreground-primary' 
                           : 'text-foreground-muted opacity-60'
                         }
                         ${currentConnectionId === connection.id ? 'bg-background-tertiary' : ''}
                       `}
-                      onSelect={() => connection.enabled && onConnectionChange(connection.id)}
-                      disabled={!connection.enabled}
+                      onSelect={() => (connection.is_active || connection.enabled) && onConnectionChange(connection.id)}
+                      disabled={!(connection.is_active || connection.enabled)}
                     >
                       <div className="flex items-center gap-2">
                         <Circle 
                           size={8} 
-                          className={`fill-current ${statusColors[connection.status]}`}
+                          className={`fill-current ${statusColors[connection.status || 'connected']}`}
                         />
                         <span>{connection.name}</span>
                       </div>
                       <span className="text-xs text-foreground-muted">
-                        {connection.status}
+                        {connection.status || 'connected'}
                       </span>
                     </DropdownMenu.Item>
                   ))}

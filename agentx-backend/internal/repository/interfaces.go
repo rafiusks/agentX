@@ -35,7 +35,7 @@ type Message struct {
 
 // SessionRepository defines session storage operations
 type SessionRepository interface {
-	Create(ctx context.Context, userID uuid.UUID, session Session) (string, error)
+	Create(ctx context.Context, session *Session) error
 	Get(ctx context.Context, userID uuid.UUID, id string) (*Session, error)
 	List(ctx context.Context, userID uuid.UUID) ([]*Session, error)
 	Update(ctx context.Context, userID uuid.UUID, id string, updates map[string]interface{}) error

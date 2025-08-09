@@ -3,96 +3,91 @@ import { ConnectionSidebar, type ProviderGroup } from './ConnectionSidebar';
 import { ConnectionDetail } from './ConnectionDetail';
 import { AddConnectionModal } from './AddConnectionModal';
 import { EmptyState } from './EmptyState';
-import { api } from '@/services/api';
+import { useConnections, useDeleteConnection, useUpdateConnection } from '@/hooks/queries/useConnections';
 import { useToast } from '@/components/ui/use-toast';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface ProviderConnectionsProps {
   onClose?: () => void;
 }
 
 export const ProviderConnections: React.FC<ProviderConnectionsProps> = ({ onClose: _onClose }) => {
-  const [providers, setProviders] = useState<ProviderGroup[]>([]);
   const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [addingToProvider, setAddingToProvider] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
+  const { data: connections = [], isLoading: loading } = useConnections();
+  const deleteConnectionMutation = useDeleteConnection();
+  const updateConnectionMutation = useUpdateConnection();
 
-  useEffect(() => {
-    loadConnections();
-  }, []);
-
-  const loadConnections = async () => {
-    try {
-      setLoading(true);
-      const connections = await api.listConnections();
+  // Process connections into provider groups
+  const providers = React.useMemo(() => {
+    if (!connections || connections.length === 0) return [];
+    
+    // Group connections by provider (handle both old and new API formats)
+    const grouped = connections.reduce((acc: any, conn: any) => {
+      // Use provider or provider_id field
+      let groupKey = conn.provider || conn.provider_id;
       
-      // Group connections by provider
-      const grouped = connections.reduce((acc: any, conn: any) => {
-        // Map openai-compatible connections to lm-studio if they use port 1234
-        let groupKey = conn.provider_id;
-        if (conn.provider_id === 'openai-compatible' && 
-            conn.config?.base_url?.includes('localhost:1234')) {
-          groupKey = 'lm-studio';
-        }
-        
-        if (!acc[groupKey]) {
-          acc[groupKey] = [];
-        }
-        acc[groupKey].push(conn);
-        return acc;
-      }, {} as Record<string, typeof connections>);
-
-      // Convert to provider groups
-      const providerGroups: ProviderGroup[] = [
-        {
-          providerId: 'openai',
-          providerName: 'OpenAI',
-          providerIcon: '⚡',
-          connections: grouped['openai'] || [],
-        },
-        {
-          providerId: 'anthropic',
-          providerName: 'Anthropic',
-          providerIcon: '🧠',
-          connections: grouped['anthropic'] || [],
-        },
-        {
-          providerId: 'ollama',
-          providerName: 'Ollama',
-          providerIcon: '🦙',
-          connections: grouped['ollama'] || [],
-        },
-        {
-          providerId: 'lm-studio',
-          providerName: 'LM Studio',
-          providerIcon: '🖥️',
-          connections: grouped['lm-studio'] || [],
-        },
-        {
-          providerId: 'openai-compatible',
-          providerName: 'OpenAI Compatible',
-          providerIcon: '🔧',
-          connections: grouped['openai-compatible'] || [],
-        },
-      ];
-
-      setProviders(providerGroups);
-      
-      // Select first connection if none selected
-      if (!selectedConnectionId && connections.length > 0) {
-        setSelectedConnectionId(connections[0].id);
+      // Map openai-compatible connections to lm-studio if they use port 1234
+      if (groupKey === 'openai-compatible' && 
+          (conn.config?.base_url?.includes('localhost:1234') || 
+           conn.base_url?.includes('localhost:1234'))) {
+        groupKey = 'lm-studio';
       }
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to load connections',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
+      
+      if (!acc[groupKey]) {
+        acc[groupKey] = [];
+      }
+      acc[groupKey].push(conn);
+      return acc;
+    }, {} as Record<string, typeof connections>);
+
+    // Convert to provider groups
+    const providerGroups: ProviderGroup[] = [
+      {
+        providerId: 'openai',
+        providerName: 'OpenAI',
+        providerIcon: '⚡',
+        connections: grouped['openai'] || [],
+      },
+      {
+        providerId: 'anthropic',
+        providerName: 'Anthropic',
+        providerIcon: '🧠',
+        connections: grouped['anthropic'] || [],
+      },
+      {
+        providerId: 'ollama',
+        providerName: 'Ollama',
+        providerIcon: '🦙',
+        connections: grouped['ollama'] || [],
+      },
+      {
+        providerId: 'lm-studio',
+        providerName: 'LM Studio',
+        providerIcon: '🖥️',
+        connections: grouped['lm-studio'] || [],
+      },
+      {
+        providerId: 'openai-compatible',
+        providerName: 'OpenAI Compatible',
+        providerIcon: '🔧',
+        connections: grouped['openai-compatible'] || [],
+      },
+    ];
+
+    return providerGroups;
+  }, [connections]);
+  
+  // Select first connection if none selected
+  useEffect(() => {
+    if (!selectedConnectionId && connections.length > 0) {
+      setSelectedConnectionId(connections[0].id);
     }
-  };
+  }, [selectedConnectionId, connections]);
 
   const handleAddConnection = (providerId: string) => {
     setAddingToProvider(providerId);
@@ -102,13 +97,13 @@ export const ProviderConnections: React.FC<ProviderConnectionsProps> = ({ onClos
   const handleConnectionCreated = (connectionId: string) => {
     setShowAddModal(false);
     setAddingToProvider(null);
-    loadConnections();
+    queryClient.invalidateQueries({ queryKey: ['connections'] });
     setSelectedConnectionId(connectionId);
   };
 
   const handleConnectionDeleted = () => {
     setSelectedConnectionId(null);
-    loadConnections();
+    queryClient.invalidateQueries({ queryKey: ['connections'] });
   };
 
   if (loading) {
@@ -134,7 +129,7 @@ export const ProviderConnections: React.FC<ProviderConnectionsProps> = ({ onClos
         {selectedConnectionId ? (
           <ConnectionDetail
             connectionId={selectedConnectionId}
-            onUpdate={loadConnections}
+            onUpdate={() => queryClient.invalidateQueries({ queryKey: ['connections'] })}
             onDelete={handleConnectionDeleted}
           />
         ) : (

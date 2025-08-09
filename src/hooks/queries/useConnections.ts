@@ -81,7 +81,12 @@ export const useConnections = (provider?: string) => {
     queryKey: connectionKeys.list(provider),
     queryFn: async () => {
       const params = provider ? `?provider=${provider}` : '';
-      return apiClient.get<Connection[]>(`/connections${params}`);
+      const response = await apiClient.get<{ connections: Connection[] }>(`/connections${params}`);
+      // Handle both response formats (direct array or wrapped in connections property)
+      if (Array.isArray(response)) {
+        return response;
+      }
+      return response.connections || [];
     },
     staleTime: 30 * 1000, // Consider fresh for 30 seconds
   });
@@ -107,8 +112,14 @@ export const useDefaultConnection = () => {
   return useQuery({
     queryKey: connectionKeys.defaultConnection(),
     queryFn: async () => {
-      return apiClient.get<Connection>('/connections/default');
+      try {
+        return await apiClient.get<Connection>('/connections/default');
+      } catch (error) {
+        // If no default connection, return null
+        return null;
+      }
     },
+    staleTime: 30 * 1000,
   });
 };
 

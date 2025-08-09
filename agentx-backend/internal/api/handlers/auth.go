@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"math/rand"
 	"strings"
 	"time"
@@ -70,7 +71,7 @@ type UserResponse struct {
 }
 
 // Login handles user login
-func Login(authService *auth.Service, auditService *audit.Service, connectionService *services.ConnectionService) fiber.Handler {
+func Login(authService *auth.Service, auditService *audit.Service, svc *services.Services) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		var req LoginRequest
 		if err := c.BodyParser(&req); err != nil {
@@ -104,6 +105,9 @@ func Login(authService *auth.Service, auditService *audit.Service, connectionSer
 			deviceName,
 		)
 		if err != nil {
+			// Log the actual error for debugging
+			fmt.Printf("[Login Error] %v\n", err)
+			
 			// Don't reveal specific error to prevent user enumeration
 			if err == auth.ErrInvalidCredentials || err == auth.ErrUserNotFound {
 				return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
@@ -128,9 +132,9 @@ func Login(authService *auth.Service, auditService *audit.Service, connectionSer
 		event.Metadata["email"] = user.Email
 		auditService.Log(c.Context(), event)
 
-		// Initialize user connections after successful login
-		if connectionService != nil {
-			if err := connectionService.InitializeUserConnections(c.Context(), user.ID); err != nil {
+		// Initialize user connections after successful login through Orchestrator
+		if svc != nil && svc.Orchestrator != nil {
+			if err := svc.Orchestrator.InitializeUserConnections(c.Context(), user.ID); err != nil {
 				// Log error but don't fail login
 				c.App().Config().ErrorHandler(c, err)
 			}

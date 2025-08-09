@@ -78,10 +78,18 @@ export const useChats = (filters?: { provider?: string; search?: string }) => {
       
       const queryString = params.toString();
       const response = await apiClient.get<{ sessions: Chat[] }>(`/sessions${queryString ? `?${queryString}` : ''}`);
-      console.log('Sessions response:', response);
-      return response.sessions || [];
+      
+      // Sort sessions by updated/created date (newest first) at the query level
+      const sessions = response.sessions || [];
+      
+      return sessions.sort((a, b) => {
+        // Use UpdatedAt if available, otherwise fall back to CreatedAt
+        const dateA = new Date(a.UpdatedAt || a.CreatedAt || 0).getTime();
+        const dateB = new Date(b.UpdatedAt || b.CreatedAt || 0).getTime();
+        return dateB - dateA; // Newest first
+      });
     },
-    staleTime: 10 * 1000, // Consider fresh for 10 seconds
+    staleTime: 30 * 1000, // Consider fresh for 30 seconds to reduce re-fetching
   });
 };
 
@@ -106,7 +114,6 @@ export const useChatMessages = (chatId?: string) => {
     queryKey: chatKeys.messages(chatId!),
     queryFn: async () => {
       const response = await apiClient.get<{ messages: Message[] }>(`/sessions/${chatId}/messages`);
-      console.log('Raw messages response:', response);
       return response.messages || [];
     },
     enabled: !!chatId,
@@ -124,9 +131,13 @@ export const useCreateChat = () => {
     mutationFn: async (data: CreateChatRequest) => {
       return apiClient.post<Chat>('/sessions', data);
     },
-    onSuccess: (_newChat) => {
-      // Invalidate all chat lists to refetch
-      queryClient.invalidateQueries({ queryKey: chatKeys.all });
+    onSuccess: (newChat) => {
+      // Optimistically add the new chat to the list instead of invalidating
+      queryClient.setQueryData<Chat[]>(chatKeys.list(), (old) => {
+        if (!old) return [newChat];
+        // Add new chat at the beginning (newest first)
+        return [newChat, ...old];
+      });
     },
   });
 };
@@ -207,8 +218,9 @@ export const useSendMessage = () => {
         (old) => [...(old || []), assistantMessage]
       );
       
-      // Invalidate chat to update last_message_at
+      // Invalidate chat detail and list to update timestamps
       queryClient.invalidateQueries({ queryKey: chatKeys.detail(variables.chat_id) });
+      queryClient.invalidateQueries({ queryKey: chatKeys.lists() });
     },
   });
 };
@@ -308,6 +320,9 @@ export const useSendStreamingMessage = () => {
                 chatKeys.messages(chat_id),
                 (old) => [...(old || []), assistantMessage]
               );
+              
+              // Invalidate chat list to update timestamps
+              queryClient.invalidateQueries({ queryKey: chatKeys.lists() });
             }
             
             // Clear streaming state after adding to cache

@@ -1,6 +1,7 @@
 package providers
 
 import (
+	"fmt"
 	"sync"
 )
 
@@ -22,13 +23,20 @@ func (r *Registry) Register(id string, provider Provider) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.providers[id] = provider
+	fmt.Printf("[Registry.Register] Registered provider with key: %s (total providers: %d)\n", id, len(r.providers))
 }
 
 // Get retrieves a provider by ID
 func (r *Registry) Get(id string) Provider {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.providers[id]
+	provider := r.providers[id]
+	if provider == nil {
+		fmt.Printf("[Registry.Get] Provider not found for key: %s (available keys: %d)\n", id, len(r.providers))
+	} else {
+		fmt.Printf("[Registry.Get] Found provider for key: %s\n", id)
+	}
+	return provider
 }
 
 // List returns all registered provider IDs
@@ -69,5 +77,6 @@ func (r *Registry) Unregister(id string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	delete(r.providers, id)
+	fmt.Printf("[Registry.Unregister] Unregistered provider with key: %s (remaining providers: %d)\n", id, len(r.providers)-1)
 }
 

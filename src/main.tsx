@@ -12,24 +12,19 @@ console.log('Main.tsx loading...');
 const root = document.getElementById('root');
 console.log('Root element:', root);
 
-// Add a loading indicator while the app initializes
+// Render the app directly
 if (root) {
-  root.innerHTML = '<div style="background: #0a0a0a; color: white; height: 100vh; display: flex; align-items: center; justify-content: center; font-family: Inter, system-ui, sans-serif;">Loading AgentX...</div>';
-  
-  // Small delay to ensure styles are loaded
-  setTimeout(() => {
-    ReactDOM.createRoot(root).render(
-      <React.StrictMode>
-        <QueryClientProvider client={queryClient}>
-          <ErrorBoundary>
-            <AppWithAuth />
-          </ErrorBoundary>
-          <ReactQueryDevtools initialIsOpen={false} />
-        </QueryClientProvider>
-      </React.StrictMode>,
-    )
-    console.log('React app rendered');
-  }, 100);
+  ReactDOM.createRoot(root).render(
+    <React.StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <ErrorBoundary>
+          <AppWithAuth />
+        </ErrorBoundary>
+        <ReactQueryDevtools initialIsOpen={false} />
+      </QueryClientProvider>
+    </React.StrictMode>,
+  )
+  console.log('React app rendered');
 } else {
   console.error('Root element not found!');
 }

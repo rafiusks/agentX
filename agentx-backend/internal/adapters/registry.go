@@ -52,11 +52,20 @@ func (r *Registry) Get(providerType string) (Adapter, error) {
 
 // GetOrDefault retrieves an adapter or returns a default
 func (r *Registry) GetOrDefault(providerType string) Adapter {
+	if r == nil {
+		return NewOpenAICompatibleAdapter()
+	}
+	
 	adapter, err := r.Get(providerType)
 	if err != nil {
 		// Return OpenAI-compatible adapter as default
 		return NewOpenAICompatibleAdapter()
 	}
+	
+	if adapter == nil {
+		return NewOpenAICompatibleAdapter()
+	}
+	
 	return adapter
 }
 

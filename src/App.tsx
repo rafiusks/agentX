@@ -1,52 +1,26 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { Chat } from './components/Chat/Chat'
 import { ConnectionSelector } from './components/ConnectionSelector/ConnectionSelector'
-import { CommandPalette } from './components/CommandPalette/CommandPalette'
-import { TabBar } from './components/TabBar/TabBar'
+import { NavigationSidebar } from './components/Navigation/NavigationSidebar'
+import { useNavigationStore } from './stores/navigation.store'
 import { Settings } from './components/Settings/Settings'
 import { Welcome } from './components/Welcome/Welcome'
 import { Help } from './components/Help/Help'
 import { MCPServers } from './components/MCPServers/MCPServers'
-import { ModeToggle } from './components/ModeToggle/ModeToggle'
-import { UserMenu } from './components/Auth/UserMenu'
 import { useChatStore } from './stores/chat.store'
-import { useUIStore } from './stores/ui.store'
-import { Command } from 'lucide-react'
-import { api } from './services/api'
-// Verify correct API is imported
-console.log('API methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(api)))
+import { useCanvasStore } from './stores/canvas.store'
+import { Button } from './components/ui/button'
+import { SplitSquareHorizontal } from 'lucide-react'
+import { FEATURES } from './config/features'
 
 function App() {
-  console.log('App component rendering...');
-  
-  const [connections, setConnections] = useState<Array<{ id: string; name: string; provider_id: string; enabled: boolean }>>([])
   const [currentTab, setCurrentTab] = useState<'chat' | 'agents' | 'mcp' | 'settings'>('chat')
-  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
   const [showWelcome, setShowWelcome] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
-  // const [settingsOpen, setSettingsOpen] = useState(false)
   
   const { currentConnectionId, setCurrentConnectionId, createSession } = useChatStore()
-  const { mode } = useUIStore()
-
-  const loadConnections = useCallback(async () => {
-    try {
-      console.log('Loading connections...');
-      const result = await api.listConnections()
-      console.log('Connections loaded:', result);
-      setConnections(result)
-      
-      // Set default connection if none selected
-      if (!currentConnectionId && result.length > 0) {
-        const enabledConnection = result.find((c: { enabled: boolean }) => c.enabled) || result[0]
-        if (enabledConnection) {
-          setCurrentConnectionId(enabledConnection.id)
-        }
-      }
-    } catch (error) {
-      console.error('Failed to load connections:', error)
-    }
-  }, [currentConnectionId, setCurrentConnectionId])
+  const { isCanvasOpen, toggleCanvas } = useCanvasStore()
+  const { isSidebarCollapsed, toggleSidebar } = useNavigationStore();
 
   useEffect(() => {
     // Check if this is first run
@@ -54,17 +28,9 @@ function App() {
     if (!welcomeCompleted) {
       setShowWelcome(true)
     }
-    
-    // Load connections on startup
-    loadConnections()
 
     // Listen for keyboard shortcuts
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Command palette
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault()
-        setCommandPaletteOpen(true)
-      }
       
       // Help
       if (e.key === 'F1') {
@@ -77,6 +43,12 @@ function App() {
         e.preventDefault()
         createSession()
         setCurrentTab('chat')
+      }
+      
+      // Toggle sidebar
+      if ((e.metaKey || e.ctrlKey) && e.key === '/') {
+        e.preventDefault()
+        toggleSidebar()
       }
       
       // Settings
@@ -104,65 +76,58 @@ function App() {
         if (showHelp) {
           e.preventDefault()
           setShowHelp(false)
-        } else if (commandPaletteOpen) {
-          e.preventDefault()
-          setCommandPaletteOpen(false)
         }
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [showHelp, commandPaletteOpen, createSession, loadConnections])
-
-  console.log('App render - connections:', connections.length, 'currentConnectionId:', currentConnectionId);
+  }, [showHelp, toggleSidebar]) // Remove loadConnections and createSession from deps to avoid re-renders
   
   if (showWelcome) {
     return <Welcome onComplete={() => {
       setShowWelcome(false)
-      loadConnections() // Reload connections after setup
     }} />
   }
   
   return (
-    <div className="flex flex-col h-screen bg-background-primary text-foreground-primary" style={{ backgroundColor: '#0a0a0a', color: 'white', minHeight: '100vh' }}>
-      {/* Header */}
-      <header className="flex items-center justify-between px-6 py-4 border-b border-border-subtle glass">
-        <div className="flex items-center gap-4">
-          <h1 className="text-title-3">AgentX</h1>
-          {mode !== 'simple' && (
-            <TabBar currentTab={currentTab} onTabChange={setCurrentTab} />
-          )}
-        </div>
-        
-        <div className="flex items-center gap-3">
-          <UserMenu />
-          
-          <div className="w-px h-6 bg-border-subtle" />
-          
-          <ModeToggle />
-          
-          <div className="w-px h-6 bg-border-subtle" />
-          
-          <ConnectionSelector 
-            currentConnectionId={currentConnectionId}
-            onConnectionChange={setCurrentConnectionId}
-          />
-          
-          {mode !== 'simple' && (
-            <button
-              onClick={() => setCommandPaletteOpen(true)}
-              className="btn-secondary px-3 py-2 gap-2"
-            >
-              <Command size={14} />
-              <span className="text-xs text-foreground-secondary">⌘K</span>
-            </button>
-          )}
-        </div>
-      </header>
+    <div className="flex h-screen bg-background-primary text-foreground-primary" style={{ backgroundColor: '#0a0a0a', color: 'white', minHeight: '100vh' }}>
+      {/* Sidebar Navigation */}
+      <NavigationSidebar 
+        currentTab={currentTab}
+        onTabChange={setCurrentTab}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={toggleSidebar}
+      />
 
-      {/* Main Content */}
-      <main className="flex-1 flex overflow-hidden">
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Slim Header Bar */}
+        <header className="flex items-center justify-between h-10 px-4 border-b border-border-subtle/50 bg-background-primary/80 backdrop-blur-sm">
+          <div className="flex items-center gap-3">
+            <ConnectionSelector 
+              currentConnectionId={currentConnectionId}
+              onConnectionChange={setCurrentConnectionId}
+            />
+          </div>
+          
+          <div className="flex items-center gap-3">
+            {FEATURES.CANVAS_MODE && currentTab === 'chat' && (
+              <Button
+                variant={isCanvasOpen ? "default" : "ghost"}
+                size="sm"
+                onClick={toggleCanvas}
+                title="Toggle Canvas"
+              >
+                <SplitSquareHorizontal size={16} />
+                <span className="ml-2">Canvas</span>
+              </Button>
+            )}
+          </div>
+        </header>
+        
+        {/* Content */}
+        <main className="flex-1 flex overflow-hidden">
         {currentTab === 'chat' && (
           <Chat />
         )}
@@ -190,22 +155,13 @@ function App() {
           <div className="overflow-auto h-full">
             <Settings 
               providers={[]}
-              onProvidersUpdate={loadConnections}
+              onProvidersUpdate={() => {}}
             />
           </div>
         )}
-      </main>
+        </main>
+      </div>
 
-      {/* Command Palette */}
-      <CommandPalette 
-        open={commandPaletteOpen}
-        onOpenChange={setCommandPaletteOpen}
-        onSettingsOpen={() => {
-          // setSettingsOpen(true)
-          setCurrentTab('settings')
-        }}
-      />
-      
       {/* Help Dialog */}
       <Help open={showHelp} onClose={() => setShowHelp(false)} />
     </div>

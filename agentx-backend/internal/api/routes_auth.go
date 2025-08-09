@@ -29,7 +29,7 @@ func SetupRoutesWithAuth(app *fiber.App, svc *services.Services, authService *au
 	
 	// Authentication endpoints
 	auth := api.Group("/auth")
-	auth.Post("/login", middleware.AuthRateLimit(), handlers.Login(authService, auditService, svc.Connection))
+	auth.Post("/login", middleware.AuthRateLimit(), handlers.Login(authService, auditService, svc))
 	auth.Post("/signup", middleware.SignupRateLimit(), handlers.Signup(authService, auditService))
 	auth.Post("/refresh", handlers.RefreshToken(authService))
 	auth.Post("/logout", middleware.AuthRequired(authService), handlers.Logout(authService, auditService))
@@ -46,8 +46,8 @@ func SetupRoutesWithAuth(app *fiber.App, svc *services.Services, authService *au
 	protected.Put("/auth/profile", handlers.UpdateProfile(authService))
 	protected.Put("/auth/password", handlers.ChangePassword(authService))
 	
-	// Create unified chat handler
-	unifiedHandler := handlers.NewUnifiedChatHandler(svc.UnifiedChat)
+	// Create unified chat handler using the Orchestrator
+	unifiedHandler := handlers.NewUnifiedChatHandler(svc.Orchestrator)
 	
 	// Chat endpoints
 	protected.Post("/chat", unifiedHandler.Chat)
@@ -61,8 +61,13 @@ func SetupRoutesWithAuth(app *fiber.App, svc *services.Services, authService *au
 	protected.Post("/sessions", handlers.CreateSession(svc))
 	protected.Get("/sessions", handlers.GetSessions(svc))
 	protected.Get("/sessions/:id", handlers.GetSession(svc))
+	protected.Put("/sessions/:id", handlers.UpdateSession(svc))
 	protected.Delete("/sessions/:id", handlers.DeleteSession(svc))
 	protected.Get("/sessions/:id/messages", handlers.GetSessionMessages(svc))
+	
+	// LLM service (NEW: General AI operations)
+	llmHandler := handlers.NewLLMHandler(svc.LLM)
+	llmHandler.RegisterRoutes(protected)
 	
 	// Connections management (multi-connection system)
 	connectionHandlers := handlers.NewConnectionHandlers(svc.Connection)

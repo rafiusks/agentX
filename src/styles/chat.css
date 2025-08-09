@@ -253,3 +253,25 @@
     @apply space-y-8; /* Increased from space-y-6 */
   }
 }
+
+/* Typing Indicator Animation */
+@keyframes typing-pulse {
+  0%, 60%, 100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  30% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+.typing-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: currentColor;
+  opacity: 0.3;
+  animation: typing-pulse 1.4s infinite;
+}

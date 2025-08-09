@@ -24,40 +24,72 @@ func (r *RequestRouter) GetHealthMonitor() *HealthMonitor {
 
 // NewRequestRouter creates a new request router
 func NewRequestRouter(providers *providers.Registry, configService *ConfigService) *RequestRouter {
+	var healthMon *HealthMonitor
+	if providers != nil {
+		healthMon = NewHealthMonitor(providers)
+	}
 	return &RequestRouter{
 		providers:     providers,
 		configService: configService,
-		healthMonitor: NewHealthMonitor(providers),
+		healthMonitor: healthMon,
 	}
 }
 
 // RouteRequest determines the best provider and model for a request
 func (r *RequestRouter) RouteRequest(ctx context.Context, req models.UnifiedChatRequest) (string, string, error) {
+	// Check for nil router
+	if r == nil {
+		fmt.Printf("[RequestRouter.RouteRequest] Router is nil\n")
+		return "", "", fmt.Errorf("router is nil")
+	}
+	
+	// Check for nil providers registry
+	if r.providers == nil {
+		fmt.Printf("[RequestRouter.RouteRequest] Providers registry is nil\n")
+		return "", "", fmt.Errorf("providers registry is nil")
+	}
 	// Handle connection_id if specified
 	if req.Preferences.ConnectionID != "" {
 		fmt.Printf("[RequestRouter.RouteRequest] Looking for connection: %s\n", req.Preferences.ConnectionID)
 		
 		// List all available providers
 		allProviders := r.providers.GetAll()
-		fmt.Printf("[RequestRouter.RouteRequest] Available providers: %v\n", allProviders)
+		fmt.Printf("[RequestRouter.RouteRequest] Total providers available: %d\n", len(allProviders))
 		for key := range allProviders {
 			fmt.Printf("[RequestRouter.RouteRequest] Provider key: %s\n", key)
 		}
 		
-		// Use the specific connection directly
+		// Build the correct registry key: userID:connectionID
+		// First try with just the connection ID (backwards compatibility)
 		provider := r.providers.Get(req.Preferences.ConnectionID)
+		
+		// If not found, try to find it in the registry by scanning for matching connection IDs
 		if provider == nil {
-			fmt.Printf("[RequestRouter.RouteRequest] Provider not found for connection: %s\n", req.Preferences.ConnectionID)
-			return "", "", fmt.Errorf("connection %s not found or not active", req.Preferences.ConnectionID)
+			// Look for any key ending with :connectionID
+			for key, p := range allProviders {
+				parts := strings.Split(key, ":")
+				if len(parts) == 2 && parts[1] == req.Preferences.ConnectionID {
+					fmt.Printf("[RequestRouter.RouteRequest] Found provider with key: %s\n", key)
+					provider = p
+					req.Preferences.ConnectionID = key // Update to full key
+					break
+				}
+			}
 		}
 		
-		// Get default model for this provider
-		models, err := provider.GetModels(ctx)
-		if err != nil || len(models) == 0 {
-			// Fallback to a default model name
-			return req.Preferences.ConnectionID, "default", nil
+		if provider == nil {
+			fmt.Printf("[RequestRouter.RouteRequest] Provider not found for connection: %s, will try fallback\n", req.Preferences.ConnectionID)
+			// Don't fail immediately, clear the connection ID and fall through to default routing
+			req.Preferences.ConnectionID = ""
+		} else {
+			// Get default model for this provider
+			models, err := provider.GetModels(ctx)
+			if err != nil || len(models) == 0 {
+				// Fallback to a default model name
+				return req.Preferences.ConnectionID, "default", nil
+			}
+			return req.Preferences.ConnectionID, models[0].ID, nil
 		}
-		return req.Preferences.ConnectionID, models[0].ID, nil
 	}
 	
 	// 1. Analyze requirements from the request
@@ -66,14 +98,32 @@ func (r *RequestRouter) RouteRequest(ctx context.Context, req models.UnifiedChat
 	// 2. Get available providers and their models
 	candidates := r.findCapableProviders(requirements)
 	if len(candidates) == 0 {
+		// Try to get ANY available provider as a last resort
+		allProviders := r.providers.GetAll()
+		fmt.Printf("[RequestRouter.RouteRequest] No capable providers found, checking all %d providers\n", len(allProviders))
+		
+		for providerID, provider := range allProviders {
+			fmt.Printf("[RequestRouter.RouteRequest] Trying provider: %s\n", providerID)
+			// Just use the first available provider
+			models, err := provider.GetModels(context.Background())
+			if err == nil && len(models) > 0 {
+				return providerID, models[0].ID, nil
+			}
+		}
+		
 		return "", "", fmt.Errorf("no providers available for requirements: %+v", requirements)
 	}
 
 	// 3. Apply user preferences
 	selected := r.applyPreferences(candidates, req.Preferences)
 
+	// Check if we got a valid selection
+	if selected.Provider == "" {
+		return "", "", fmt.Errorf("no provider could be selected")
+	}
+
 	// 4. Check health status
-	if !r.healthMonitor.IsHealthy(selected.Provider) {
+	if r.healthMonitor != nil && selected.Provider != "" && !r.healthMonitor.IsHealthy(selected.Provider) {
 		// Try to find a healthy alternative
 		for _, candidate := range candidates {
 			if r.healthMonitor.IsHealthy(candidate.Provider) {
@@ -130,8 +180,8 @@ func (r *RequestRouter) findCapableProviders(requirements providers.Requirements
 
 	allProviders := r.providers.GetAll()
 	for providerID, provider := range allProviders {
-		// Skip unhealthy providers
-		if !r.healthMonitor.IsHealthy(providerID) {
+		// Skip unhealthy providers (if health monitor is available)
+		if r.healthMonitor != nil && !r.healthMonitor.IsHealthy(providerID) {
 			continue
 		}
 
@@ -159,6 +209,11 @@ func (r *RequestRouter) findCapableProviders(requirements providers.Requirements
 
 // applyPreferences scores and selects based on user preferences
 func (r *RequestRouter) applyPreferences(candidates []RoutingCandidate, prefs models.Preferences) RoutingCandidate {
+	// Check for empty candidates
+	if len(candidates) == 0 {
+		return RoutingCandidate{} // Return empty candidate
+	}
+
 	// Direct provider/model override
 	if prefs.Provider != "" && prefs.Model != "" {
 		for _, c := range candidates {
@@ -234,10 +289,12 @@ func (r *RequestRouter) scoreCandidate(candidate RoutingCandidate, prefs models.
 		score += 15
 	}
 
-	// Health status bonus
-	health := r.healthMonitor.GetHealth(candidate.Provider)
-	if health != nil {
-		score += float64(100 - health.ErrorRate*100) * 0.1 // Up to 10 points for reliability
+	// Health status bonus - check for nil health monitor
+	if r.healthMonitor != nil {
+		health := r.healthMonitor.GetHealth(candidate.Provider)
+		if health != nil {
+			score += float64(100 - health.ErrorRate*100) * 0.1 // Up to 10 points for reliability
+		}
 	}
 
 	return score

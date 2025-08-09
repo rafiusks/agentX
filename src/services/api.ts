@@ -236,7 +236,6 @@ class ApiService {
   async listConnections(providerId?: string) {
     const query = providerId ? `?provider_id=${providerId}` : '';
     const response = await this.fetch(`/connections${query}`);
-    console.log('listConnections response:', response);
     return response.connections || [];
   }
 

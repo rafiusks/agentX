@@ -30,6 +30,10 @@ type HealthMonitor struct {
 
 // NewHealthMonitor creates a new health monitor
 func NewHealthMonitor(providers *providers.Registry) *HealthMonitor {
+	if providers == nil {
+		return nil
+	}
+	
 	monitor := &HealthMonitor{
 		providers: providers,
 		health:    make(map[string]*HealthStatus),
@@ -37,10 +41,13 @@ func NewHealthMonitor(providers *providers.Registry) *HealthMonitor {
 	}
 	
 	// Initialize health status for all providers
-	for providerID := range providers.GetAll() {
-		monitor.health[providerID] = &HealthStatus{
-			Healthy:   true,
-			LastCheck: time.Now(),
+	allProviders := providers.GetAll()
+	if allProviders != nil {
+		for providerID := range allProviders {
+			monitor.health[providerID] = &HealthStatus{
+				Healthy:   true,
+				LastCheck: time.Now(),
+			}
 		}
 	}
 	
@@ -52,6 +59,10 @@ func NewHealthMonitor(providers *providers.Registry) *HealthMonitor {
 
 // IsHealthy returns whether a provider is healthy
 func (m *HealthMonitor) IsHealthy(providerID string) bool {
+	if m == nil {
+		return true // If no monitor, assume healthy
+	}
+	
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	
@@ -70,6 +81,10 @@ func (m *HealthMonitor) IsHealthy(providerID string) bool {
 
 // GetHealth returns the health status for a provider
 func (m *HealthMonitor) GetHealth(providerID string) *HealthStatus {
+	if m == nil {
+		return nil
+	}
+	
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	
@@ -141,8 +156,19 @@ func (m *HealthMonitor) startHealthChecks() {
 
 // performHealthChecks checks all providers
 func (m *HealthMonitor) performHealthChecks() {
-	for providerID, provider := range m.providers.GetAll() {
-		go m.checkProvider(providerID, provider)
+	if m == nil || m.providers == nil {
+		return
+	}
+	
+	allProviders := m.providers.GetAll()
+	if allProviders == nil {
+		return
+	}
+	
+	for providerID, provider := range allProviders {
+		if provider != nil {
+			go m.checkProvider(providerID, provider)
+		}
 	}
 }
 
@@ -175,13 +201,19 @@ func (m *HealthMonitor) Stop() {
 
 // GetAllHealth returns health status for all providers
 func (m *HealthMonitor) GetAllHealth() map[string]HealthStatus {
+	if m == nil {
+		return make(map[string]HealthStatus)
+	}
+	
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	
 	// Create a copy of the health map
 	healthCopy := make(map[string]HealthStatus)
 	for k, v := range m.health {
-		healthCopy[k] = *v
+		if v != nil {
+			healthCopy[k] = *v
+		}
 	}
 	
 	return healthCopy

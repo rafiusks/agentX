@@ -18,11 +18,11 @@ import (
 
 // UnifiedChatHandler handles unified chat requests
 type UnifiedChatHandler struct {
-	chatService *services.UnifiedChatService
+	chatService services.UnifiedChatInterface  // Now uses interface for flexibility
 }
 
 // NewUnifiedChatHandler creates a new unified chat handler
-func NewUnifiedChatHandler(chatService *services.UnifiedChatService) *UnifiedChatHandler {
+func NewUnifiedChatHandler(chatService services.UnifiedChatInterface) *UnifiedChatHandler {
 	return &UnifiedChatHandler{
 		chatService: chatService,
 	}
@@ -183,6 +183,22 @@ func (h *UnifiedChatHandler) StreamChatSSE(c *fiber.Ctx) error {
 		}
 		
 		fmt.Printf("[StreamChatSSE] Stream completed with %d chunks\n", chunkCount)
+		
+		// Update session timestamp after streaming completes
+		if req.SessionID != "" {
+			updateErr := h.chatService.UpdateSessionTimestamp(context.Background(), userContext.UserID, req.SessionID)
+			if updateErr != nil {
+				fmt.Printf("[StreamChatSSE] Error updating session timestamp: %v\n", updateErr)
+			} else {
+				fmt.Printf("[StreamChatSSE] Successfully updated session timestamp for session %s\n", req.SessionID)
+			}
+			
+			// Check if we should auto-label the session
+			labelErr := h.chatService.MaybeAutoLabelSession(context.Background(), userContext.UserID, req.SessionID)
+			if labelErr != nil {
+				fmt.Printf("[StreamChatSSE] Error auto-labeling session: %v\n", labelErr)
+			}
+		}
 		
 		// Send done event
 		fmt.Fprintf(w, "data: [DONE]\n\n")

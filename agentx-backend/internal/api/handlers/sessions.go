@@ -1,9 +1,10 @@
 package handlers
 
 import (
+	"fmt"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/agentx/agentx-backend/internal/api/middleware"
-	"github.com/agentx/agentx-backend/internal/repository"
 	"github.com/agentx/agentx-backend/internal/services"
 )
 
@@ -31,7 +32,7 @@ func CreateSession(svc *services.Services) fiber.Handler {
 			req.Title = "New Chat"
 		}
 		
-		session, err := svc.Chat.CreateSession(c.UserContext(), userContext.UserID, req.Title)
+		session, err := svc.Orchestrator.CreateSession(c.Context(), userContext.UserID, req.Title)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": err.Error(),
@@ -52,7 +53,7 @@ func GetSessions(svc *services.Services) fiber.Handler {
 			})
 		}
 		
-		sessions, err := svc.Chat.GetSessions(c.UserContext(), userContext.UserID)
+		sessions, err := svc.Orchestrator.ListSessions(c.Context(), userContext.UserID)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": err.Error(),
@@ -77,7 +78,7 @@ func GetSession(svc *services.Services) fiber.Handler {
 		
 		sessionID := c.Params("id")
 		
-		session, err := svc.Chat.GetSession(c.UserContext(), userContext.UserID, sessionID)
+		session, err := svc.Orchestrator.GetSession(c.Context(), userContext.UserID, sessionID)
 		if err != nil {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 				"error": "Session not found",
@@ -100,7 +101,7 @@ func DeleteSession(svc *services.Services) fiber.Handler {
 		
 		sessionID := c.Params("id")
 		
-		err := svc.Chat.DeleteSession(c.UserContext(), userContext.UserID, sessionID)
+		err := svc.Orchestrator.DeleteSession(c.Context(), userContext.UserID, sessionID)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": err.Error(),
@@ -118,7 +119,7 @@ func GetSessionMessages(svc *services.Services) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		sessionID := c.Params("id")
 		
-		messages, err := svc.Chat.GetSessionMessages(c.UserContext(), sessionID)
+		messages, err := svc.Orchestrator.GetMessages(c.Context(), sessionID)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": err.Error(),
@@ -131,15 +132,21 @@ func GetSessionMessages(svc *services.Services) fiber.Handler {
 	}
 }
 
-// SendMessage sends a message in a session (legacy endpoint)
-func SendMessage(svc *services.Services) fiber.Handler {
+// UpdateSession updates a session
+func UpdateSession(svc *services.Services) fiber.Handler {
 	return func(c *fiber.Ctx) error {
+		userContext := middleware.GetUserContext(c)
+		if userContext == nil {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+				"error": "Not authenticated",
+			})
+		}
+		
 		sessionID := c.Params("id")
 		
 		var req struct {
-			Content  string `json:"content"`
-			Provider string `json:"provider,omitempty"`
-			Model    string `json:"model,omitempty"`
+			Title    string                 `json:"title"`
+			Metadata map[string]interface{} `json:"metadata"`
 		}
 		
 		if err := c.BodyParser(&req); err != nil {
@@ -148,79 +155,34 @@ func SendMessage(svc *services.Services) fiber.Handler {
 			})
 		}
 		
-		// Create message
-		userMsg := repository.Message{
-			SessionID: sessionID,
-			Role:      "user",
-			Content:   req.Content,
+		// Build updates map
+		updates := make(map[string]interface{})
+		if req.Title != "" {
+			updates["title"] = req.Title
+		}
+		if req.Metadata != nil {
+			updates["metadata"] = req.Metadata
 		}
 		
-		// Get session history
-		messages, err := svc.Chat.GetSessionMessages(c.UserContext(), sessionID)
+		// Update session
+		err := svc.Orchestrator.UpdateSession(c.Context(), userContext.UserID, sessionID, updates)
 		if err != nil {
+			fmt.Printf("[UpdateSession] Error updating session: %v\n", err)
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": err.Error(),
+				"error": "Failed to update session",
 			})
 		}
 		
-		// Save user message
-		userMsgID, err := svc.Chat.SaveMessage(c.UserContext(), userMsg)
+		// Get updated session
+		session, err := svc.Orchestrator.GetSession(c.Context(), userContext.UserID, sessionID)
 		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": err.Error(),
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error": "Session not found",
 			})
 		}
 		
-		// Prepare provider messages
-		providerMessages := make([]repository.Message, len(messages))
-		copy(providerMessages, messages)
-		providerMessages = append(providerMessages, userMsg)
-		
-		// Send to provider (using legacy method)
-		// Extract userID from context
-		userContext := middleware.GetUserContext(c)
-		if userContext == nil {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error": "Not authenticated",
-			})
-		}
-		response, err := svc.Chat.SendToProvider(c.UserContext(), userContext.UserID, sessionID, providerMessages, req.Provider, req.Model)
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": err.Error(),
-			})
-		}
-		
-		// Extract content from response
-		content := ""
-		if len(response.Choices) > 0 {
-			content = response.Choices[0].Message.Content
-		}
-		
-		// Save assistant message
-		assistantMsg := repository.Message{
-			SessionID: sessionID,
-			Role:      "assistant",
-			Content:   content,
-		}
-		
-		assistantMsgID, err := svc.Chat.SaveMessage(c.UserContext(), assistantMsg)
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": err.Error(),
-			})
-		}
-		
-		return c.JSON(fiber.Map{
-			"user_message": fiber.Map{
-				"id":      userMsgID,
-				"content": req.Content,
-			},
-			"assistant_message": fiber.Map{
-				"id":      assistantMsgID,
-				"content": content,
-			},
-			"usage": response.Usage,
-		})
+		return c.JSON(session)
 	}
 }
+
+

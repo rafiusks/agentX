@@ -1,8 +1,9 @@
-import { useState } from 'react'
-import { User, Bot, Code, Cpu, Copy } from 'lucide-react'
+import { User, Bot, Cpu, Code } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import { useUIStore } from '../../stores/ui.store'
 import { FunctionCall } from '../FunctionCall'
+import { SimpleMessageActions } from './SimpleMessageActions'
+import { CodeBlock } from './CodeBlock'
 import type { Message } from '../../hooks/queries/useChats'
 
 interface ChatMessageProps {
@@ -10,22 +11,10 @@ interface ChatMessageProps {
 }
 
 export function ChatMessage({ message }: ChatMessageProps) {
-  const [showActions, setShowActions] = useState(false)
-  const [isCopied, setIsCopied] = useState(false)
   const isUser = message.role === 'user'
   const isFunction = message.role === 'function'
   const isAssistant = message.role === 'assistant'
   const { mode } = useUIStore()
-  
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(message.content)
-      setIsCopied(true)
-      setTimeout(() => setIsCopied(false), 2000)
-    } catch (error) {
-      console.error('Failed to copy:', error)
-    }
-  }
   
   // Show function calls inline
   if (message.functionCall && message.role === 'assistant') {
@@ -46,8 +35,6 @@ export function ChatMessage({ message }: ChatMessageProps) {
   return (
     <div 
       className={`flex gap-3 ${isUser ? 'justify-end' : ''} relative group message-animate-in`}
-      onMouseEnter={() => setShowActions(true)}
-      onMouseLeave={() => setShowActions(false)}
     >
       {!isUser && !isFunction && (
         <div className="message-avatar bg-gradient-to-br from-accent-blue to-accent-green">
@@ -71,22 +58,9 @@ export function ChatMessage({ message }: ChatMessageProps) {
         }
         ${message.isStreaming ? 'animate-pulse-subtle' : ''}
       `}>
-        {/* Action buttons for assistant messages */}
-        {isAssistant && !message.isStreaming && showActions && (
-          <div className="absolute -top-9 right-0 flex items-center gap-1 bg-background-secondary 
-                          border border-border-subtle rounded-lg px-2 py-1 shadow-lg">
-            <button
-              onClick={handleCopy}
-              className="p-1 hover:bg-background-tertiary rounded transition-colors"
-              title="Copy message"
-            >
-              {isCopied ? (
-                <Code size={14} className="text-accent-green" />
-              ) : (
-                <Copy size={14} className="text-foreground-secondary" />
-              )}
-            </button>
-          </div>
+        {/* Simple Copy Action */}
+        {!message.isStreaming && (
+          <SimpleMessageActions content={message.content} />
         )}
         
         {isUser ? (
@@ -108,18 +82,30 @@ export function ChatMessage({ message }: ChatMessageProps) {
                   </blockquote>
                 ),
                 hr: () => <hr className="my-6 border-border-subtle/30" />,
-                pre: ({ children }) => (
-                  <div className="message-code-block">
-                    <pre className="m-0">
-                      {children}
-                    </pre>
-                  </div>
-                ),
-                code: ({ children, ...props }) => {
-                  const isInline = !props.className?.includes('language-');
-                  return isInline 
-                    ? <code className="message-inline-code">{children}</code>
-                    : <code className="text-[13px]">{children}</code>
+                pre: ({ children }) => {
+                  // Extract the code element from pre
+                  const codeElement = (children as any)?.props;
+                  if (codeElement?.children) {
+                    return <>{codeElement.children}</>;
+                  }
+                  return <pre className="m-0">{children}</pre>;
+                },
+                code: ({ className, children }) => {
+                  const match = /language-(\w+)/.exec(className || '');
+                  const language = match ? match[1] : undefined;
+                  const isInline = !className;
+                  
+                  return !isInline && match ? (
+                    <CodeBlock 
+                      language={language}
+                      value={String(children).replace(/\n$/, '')}
+                    />
+                  ) : (
+                    <CodeBlock 
+                      value={String(children)}
+                      inline={true}
+                    />
+                  );
                 },
                 strong: ({ children }) => <strong className="font-semibold text-foreground-primary">{children}</strong>,
                 em: ({ children }) => <em className="italic">{children}</em>,

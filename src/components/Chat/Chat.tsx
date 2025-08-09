@@ -1,14 +1,14 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, Loader2, SplitSquareHorizontal } from 'lucide-react'
+import { SplitSquareHorizontal } from 'lucide-react'
 import { useChatStore } from '../../stores/chat.store'
-import { useUIStore } from '../../stores/ui.store'
 import { useStreamingStore } from '../../stores/streaming.store'
 import { useCanvasStore } from '../../stores/canvas.store'
 import { useChats, useChat, useChatMessages, useSendStreamingMessage, type Message } from '../../hooks/queries/useChats'
 import { useDefaultConnection } from '../../hooks/queries/useConnections'
 import { ChatMessage } from './ChatMessage'
-import { ChatSidebar } from './ChatSidebar'
 import { SmartSuggestions } from './SmartSuggestions'
+import { SimpleMessageInput } from './SimpleMessageInput'
+import { TypingIndicator } from './TypingIndicator'
 import { Canvas } from '../Canvas/Canvas'
 import { Button } from '../ui/button'
 import { FEATURES } from '@/config/features'
@@ -18,7 +18,6 @@ export function Chat() {
   const [isCreatingSession, setIsCreatingSession] = useState(false)
   const [pendingMessage, setPendingMessage] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLTextAreaElement>(null)
   
   const { 
     currentChatId,
@@ -30,7 +29,6 @@ export function Chat() {
     createSession
   } = useChatStore()
   
-  const { mode } = useUIStore()
   const { streamingMessage, isStreaming } = useStreamingStore()
   const { isCanvasOpen, toggleCanvas } = useCanvasStore()
   
@@ -91,9 +89,7 @@ export function Chat() {
     }
   }, [currentChatId, pendingMessage, isCreatingSession, currentConnectionId, sendMessageMutation, setComposerDraft])
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
+  const handleSubmit = async () => {
     if (!input.trim() || isStreaming || !currentConnectionId || isCreatingSession) return
     
     const messageContent = input.trim()
@@ -137,19 +133,12 @@ export function Chat() {
     })
   }
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSubmit(e)
-    }
+  const handleInputChange = (value: string) => {
+    setInput(value)
+    setComposerDraft(value)
   }
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInput(e.target.value)
-    setComposerDraft(e.target.value)
-  }
 
-  const showSidebar = mode !== 'simple'
 
   // Combine regular messages with streaming message
   const allMessages = [
@@ -159,7 +148,6 @@ export function Chat() {
 
   return (
     <div className="flex w-full h-full overflow-hidden">
-      {showSidebar && <ChatSidebar />}
       
       <div className={`flex-1 flex flex-col h-full ${isCanvasOpen ? 'mr-[50%]' : ''}`}>
         {/* Show empty state if no chat is selected */}
@@ -177,33 +165,6 @@ export function Chat() {
           </div>
         ) : (
           <>
-            {/* Chat Header with Memory Indicator */}
-            <div className="border-b border-border-subtle px-4 py-2 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-medium text-foreground-primary">
-                  Chat Session
-                </h3>
-                {currentChatId && (
-                  <span className="text-xs text-foreground-tertiary">
-                    ID: {currentChatId.slice(0, 8)}
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-3">
-                {FEATURES.CANVAS_MODE && (
-                  <Button
-                    variant={isCanvasOpen ? "default" : "ghost"}
-                    size="sm"
-                    onClick={toggleCanvas}
-                    title="Toggle Canvas"
-                  >
-                    <SplitSquareHorizontal size={16} />
-                    <span className="ml-2">Canvas</span>
-                  </Button>
-                )}
-              </div>
-            </div>
-            
             {/* Messages */}
             <div className="chat-container chat-scroll-smooth">
               <div className="chat-messages-wrapper">
@@ -219,10 +180,7 @@ export function Chat() {
                       <ChatMessage key={message.id || `msg-${index}`} message={message as Message} />
                     ))}
                     {isStreaming && !streamingMessage && (
-                      <div className="flex items-center gap-2 text-foreground-secondary">
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Thinking...</span>
-                      </div>
+                      <TypingIndicator />
                     )}
                   </>
                 )}
@@ -230,49 +188,28 @@ export function Chat() {
               </div>
             </div>
 
-            {/* Input */}
-            <form onSubmit={handleSubmit} className="border-t border-border-subtle">
-          <div className="max-w-4xl mx-auto p-4">
-            <div className="relative">
-              <textarea
-                ref={inputRef}
-                value={input}
-                onChange={handleInputChange}
-                onKeyDown={handleKeyDown}
-                placeholder={isStreaming ? "Waiting for response..." : isCreatingSession ? "Creating session..." : "Type a message..."}
-                disabled={isStreaming || isCreatingSession}
-                className="w-full px-4 py-3 pr-12 bg-background-secondary border border-border-subtle 
-                         rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-accent-blue/50 
-                         focus:ring-offset-2 focus:ring-offset-background-primary
-                         text-foreground-primary placeholder-foreground-tertiary
-                         disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                rows={3}
-              />
-              <button
-                type="submit"
-                disabled={!input.trim() || isStreaming || isCreatingSession}
-                className="absolute bottom-3 right-3 p-2 rounded-lg
-                         bg-accent-blue text-white disabled:opacity-50 
-                         disabled:cursor-not-allowed hover:bg-accent-blue/90
-                         transition-all active:scale-95"
-              >
-                {isStreaming || isCreatingSession ? (
-                  <Loader2 size={18} className="animate-spin" />
-                ) : (
-                  <Send size={18} />
-                )}
-              </button>
+            {/* Simple Input */}
+            <div className="border-t border-border-subtle">
+              <div className="max-w-4xl mx-auto p-4">
+                <SimpleMessageInput
+                  value={input}
+                  onChange={handleInputChange}
+                  onSubmit={handleSubmit}
+                  isLoading={isStreaming || isCreatingSession}
+                  disabled={isStreaming || isCreatingSession}
+                  placeholder={isStreaming ? "AI is responding..." : isCreatingSession ? "Creating session..." : "Ask me anything..."}
+                />
+              </div>
             </div>
-          </div>
-        </form>
         
         {/* Smart Suggestions */}
-        <SmartSuggestions 
-          onSuggestionClick={(suggestion) => {
-            setInput(suggestion);
-            inputRef.current?.focus();
-          }}
-        />
+        {input.length === 0 && (
+          <SmartSuggestions 
+            onSuggestionClick={(suggestion) => {
+              setInput(suggestion);
+            }}
+          />
+        )}
           </>
         )}
       </div>

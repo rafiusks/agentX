@@ -26,19 +26,29 @@ func NewChatService(providers *providers.Registry, sessionRepo repository.Sessio
 	}
 }
 
+// GetSessionRepo returns the session repository
+func (s *ChatService) GetSessionRepo() repository.SessionRepository {
+	return s.sessionRepo
+}
+
+// GetMessageRepo returns the message repository
+func (s *ChatService) GetMessageRepo() repository.MessageRepository {
+	return s.messageRepo
+}
+
 // CreateSession creates a new chat session
 func (s *ChatService) CreateSession(ctx context.Context, userID uuid.UUID, title string) (*repository.Session, error) {
-	session := repository.Session{
-		Title: title,
+	session := &repository.Session{
+		UserID: userID,
+		Title:  title,
 	}
 	
-	sessionID, err := s.sessionRepo.Create(ctx, userID, session)
+	err := s.sessionRepo.Create(ctx, session)
 	if err != nil {
 		return nil, err
 	}
 	
-	session.ID = sessionID
-	return &session, nil
+	return session, nil
 }
 
 // GetSession retrieves a session by ID
@@ -64,6 +74,19 @@ func (s *ChatService) GetSessionMessages(ctx context.Context, sessionID string) 
 // SaveMessage saves a message to a session
 func (s *ChatService) SaveMessage(ctx context.Context, message repository.Message) (string, error) {
 	return s.messageRepo.Create(ctx, message)
+}
+
+// UpdateSessionTimestamp updates the session's updated_at timestamp
+func (s *ChatService) UpdateSessionTimestamp(ctx context.Context, userID uuid.UUID, sessionID string) error {
+	fmt.Printf("[UpdateSessionTimestamp] Updating session %s for user %s\n", sessionID, userID.String())
+	// Pass empty map - the repository will automatically set updated_at
+	err := s.sessionRepo.Update(ctx, userID, sessionID, map[string]interface{}{})
+	if err != nil {
+		fmt.Printf("[UpdateSessionTimestamp] Error updating session: %v\n", err)
+	} else {
+		fmt.Printf("[UpdateSessionTimestamp] Successfully updated session timestamp\n")
+	}
+	return err
 }
 
 // SendToProvider sends messages to a provider and returns the response
