@@ -2,6 +2,8 @@
 @import './animations.css';
 @import './chat.css';
 @import './navigation.css';
+@import './spacing.css';
+@import './micro-animations.css';
 
 @tailwind base;
 @tailwind components;
@@ -57,13 +59,13 @@
     @apply bg-accent-blue/30 text-foreground-primary;
   }
 
-  /* Focus styles */
+  /* Focus styles - removed blue rings for cleaner appearance */
   *:focus {
     outline: none;
   }
 
   *:focus-visible {
-    @apply ring-2 ring-accent-blue/50 ring-offset-2 ring-offset-background-primary;
+    outline: none;
   }
 }
 
@@ -71,7 +73,7 @@
   /* Button variants */
   .btn {
     @apply inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors;
-    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue/50;
+    @apply focus-visible:outline-none;
     @apply disabled:pointer-events-none disabled:opacity-50;
   }
 
@@ -91,7 +93,6 @@
   .input {
     @apply flex h-10 w-full rounded-md border border-border-subtle bg-background-secondary px-3 py-2;
     @apply text-sm placeholder:text-foreground-muted;
-    @apply focus:border-accent-blue/50 focus:bg-background-tertiary;
     @apply transition-colors;
   }
 
@@ -118,9 +119,9 @@
     animation: slide-up 300ms ease-out;
   }
 
-  /* Glass effect */
+  /* Glass effect - replaced with solid background */
   .glass {
-    @apply bg-background-secondary/80 backdrop-blur-xl;
+    @apply bg-background-secondary;
     @apply border border-border-subtle;
   }
 

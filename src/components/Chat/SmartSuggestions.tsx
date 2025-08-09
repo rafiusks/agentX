@@ -59,7 +59,7 @@ export const SmartSuggestions: React.FC<SmartSuggestionsProps> = ({ onSuggestion
   
   return (
     <div className="absolute bottom-20 right-4 max-w-sm z-40">
-      <div className="bg-background-secondary/90 border border-border-subtle/50 rounded-lg shadow-sm p-2 backdrop-blur-sm">
+      <div className="bg-background-secondary border border-border-subtle rounded-xl shadow-sm p-2">
         <div className="flex items-center gap-2 mb-1">
           <Sparkles size={12} className="text-accent-blue/60" />
           <span className="text-xs text-foreground-tertiary">

@@ -17,6 +17,10 @@ export function formatCodeInText(text: string): string {
     /\w+\.\w+\(/gm, // method calls
     /#\s*(Load|Split|Store|Query|.*)/gm, // Python comments
     /DirectoryLoader|RecursiveCharacterTextSplitter|OpenAIEmbeddings|Chroma/g, // Common library names
+    /client\s*=\s*\w+\(\)/gm, // Client initialization
+    /response\s*=\s*/gm, // Response assignment
+    /tools\s*=\s*\[/gm, // Tools array
+    /"type":\s*"function"/g, // Function type in JSON
   ];
 
   // Common language keywords
@@ -52,7 +56,8 @@ export function formatCodeInText(text: string): string {
   }
 
   // If we detected code, wrap it in a code block
-  if (maxMatches > 2) {
+  // Lower threshold for better detection
+  if (maxMatches > 1 || (looksLikeCode && text.split('\n').length > 2)) {
     // Check if the code is all on one line but should have line breaks
     // Look for common patterns that indicate line breaks
     let formattedText = text;

@@ -103,7 +103,7 @@ function App() {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Slim Header Bar */}
-        <header className="flex items-center justify-between h-10 px-4 border-b border-border-subtle/50 bg-background-primary/80 backdrop-blur-sm">
+        <header className="flex items-center justify-between h-10 px-4 border-b border-border-subtle bg-background-primary">
           <div className="flex items-center gap-3">
             <ConnectionSelector 
               currentConnectionId={currentConnectionId}

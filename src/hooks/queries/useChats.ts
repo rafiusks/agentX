@@ -7,6 +7,7 @@ import { selectImportantMessages } from '../../utils/message-importance';
 import { useContextStore } from '../../stores/context.store';
 import { buildContextWithSummaries } from './useSummaries';
 import { usePreferencesStore } from '../../stores/preferences.store';
+import { withRetry, withRateLimitRetry } from '../../utils/retry';
 
 // Types
 export interface Chat {
@@ -105,6 +106,8 @@ export const useChats = (filters?: { provider?: string; search?: string }) => {
       });
     },
     staleTime: 30 * 1000, // Consider fresh for 30 seconds to reduce re-fetching
+    refetchOnWindowFocus: false, // Don't refetch on window focus
+    refetchOnMount: false, // Don't refetch if data exists
   });
 };
 
@@ -132,7 +135,9 @@ export const useChatMessages = (chatId?: string) => {
       return response.messages || [];
     },
     enabled: !!chatId,
-    staleTime: 5 * 1000, // Consider fresh for 5 seconds
+    staleTime: 60 * 1000, // Consider fresh for 60 seconds
+    refetchOnWindowFocus: false, // Don't refetch on window focus
+    refetchOnMount: false, // Don't refetch if data exists
   });
 };
 
@@ -448,7 +453,10 @@ export const useSendStreamingMessage = () => {
         requestBody.max_tokens = maxResponseTokens;
       }
       
-      return apiClient.stream(`/chat/stream`, requestBody, (chunk: any) => {
+      // Wrap streaming call with retry logic for rate limits
+      return withRateLimitRetry(
+        async () => {
+          return await apiClient.stream(`/chat/stream`, requestBody, (chunk: any) => {
         // Handle OpenAI-formatted streaming chunks
         // Skip invalid chunks
         if (!chunk || typeof chunk !== 'object') {
@@ -587,6 +595,23 @@ export const useSendStreamingMessage = () => {
         // Clear streaming state
         useStreamingStore.getState().clearStreaming();
       }, abortController?.signal); // Pass the abort signal to enable cancellation
+        },
+        (attempt, delay) => {
+          // Notify user about retry
+          const retryMsg: Message = {
+            id: `retry-${Date.now()}`,
+            chat_id,
+            role: 'system',
+            content: `⏳ Rate limited. Retrying in ${Math.round(delay / 1000)}s... (Attempt ${attempt})`,
+            created_at: new Date().toISOString(),
+          };
+          
+          queryClient.setQueryData<Message[]>(
+            chatKeys.messages(chat_id),
+            (old) => [...(old || []), retryMsg]
+          );
+        }
+      ); // End of withRateLimitRetry
     },
     onError: (error, variables) => {
       console.error('Mutation error:', error);

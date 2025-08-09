@@ -81,12 +81,17 @@ export const useStreamingStore = create<StreamingState>((set, get) => ({
     // Preserve formatting by ensuring we don't lose whitespace/newlines
     // when concatenating chunks
     const newBuffer = state.streamBuffer + content;
+    
+    // Only update if we actually have a streaming message
+    if (!state.streamingMessage) return {};
+    
+    // Batch updates to reduce re-renders
     return {
       streamBuffer: newBuffer,
-      streamingMessage: state.streamingMessage ? {
+      streamingMessage: {
         ...state.streamingMessage,
         content: newBuffer,
-      } : null,
+      },
     };
   }),
   
@@ -134,3 +139,22 @@ export const useStreamingStore = create<StreamingState>((set, get) => ({
     });
   },
 }));
+
+// Optimized selectors to prevent unnecessary re-renders
+export const useStreamingMessage = () => useStreamingStore(
+  (state) => state.streamingMessage
+);
+
+export const useIsStreaming = () => useStreamingStore(
+  (state) => state.isStreaming
+);
+
+export const useStreamActions = () => useStreamingStore(
+  (state) => ({
+    startStreaming: state.startStreaming,
+    appendToStream: state.appendToStream,
+    finishStreaming: state.finishStreaming,
+    abortStream: state.abortStream,
+    setStreamError: state.setStreamError,
+  })
+);

@@ -35,14 +35,7 @@
     @apply active:scale-[0.98] transition-transform;
   }
   
-  /* Focus effects */
-  .focus-ring {
-    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background-primary;
-  }
-  
-  .focus-ring-subtle {
-    @apply focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-blue/30 focus-visible:ring-offset-1 focus-visible:ring-offset-background-primary;
-  }
+  /* Focus effects - removed blue rings for cleaner appearance */
   
   /* Loading states */
   .loading-pulse {

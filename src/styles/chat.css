@@ -24,6 +24,7 @@
     @apply shadow-sm;
     @apply max-w-[1200px];
     @apply transition-all duration-200;
+    @apply overflow-hidden; /* Prevent content from pushing width */
   }
   
   .message-assistant:hover {
@@ -56,9 +57,43 @@
   /* Code blocks within messages */
   .message-code-block {
     @apply bg-gray-900/50 border border-gray-800;
-    @apply rounded-xl p-4 my-4;
-    @apply overflow-x-auto;
+    @apply rounded-xl my-4;
+    @apply overflow-hidden; /* Contain the content */
     @apply relative;
+    @apply max-w-full; /* Don't exceed container width */
+  }
+  
+  /* Prevent vertical scroll capture in code blocks */
+  .code-scroll-container {
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    overscroll-behavior-y: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Only show scrollbar on hover for cleaner look */
+  .code-scroll-container::-webkit-scrollbar {
+    height: 6px;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  
+  .code-scroll-container:hover::-webkit-scrollbar {
+    opacity: 1;
+  }
+  
+  .code-scroll-container::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  .code-scroll-container::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+  }
+  
+  .code-scroll-container::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
   }
   
   .message-code-block pre {

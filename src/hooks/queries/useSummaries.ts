@@ -26,11 +26,28 @@ export const useSessionSummaries = (sessionId?: string) => {
   return useQuery({
     queryKey: summaryKeys.bySession(sessionId || ''),
     queryFn: async () => {
+      // Temporarily disable summaries until backend is ready
+      return [];
+      
+      // Original implementation (commented out for now)
+      /*
       if (!sessionId) return [];
-      const response = await apiClient.get<SessionSummary[]>(`/sessions/${sessionId}/summaries`);
-      return response;
+      try {
+        const response = await apiClient.get<SessionSummary[]>(`/sessions/${sessionId}/summaries`);
+        return response;
+      } catch (error: any) {
+        // Silently fail for 403/404 - summaries feature may not be available
+        if (error.status === 403 || error.status === 404) {
+          console.debug('[Summaries] Feature not available or unauthorized');
+          return [];
+        }
+        // Re-throw other errors
+        throw error;
+      }
+      */
     },
-    enabled: !!sessionId,
+    enabled: false, // Disable until backend ready
+    retry: false, // Don't retry on 403/404 errors
   });
 };
 
@@ -48,17 +65,26 @@ export const useGenerateSummary = () => {
       sessionId: string; 
       messageCount?: number;
     }) => {
+      // Temporarily disable summary generation until backend is ready
+      console.debug('[Summaries] Feature temporarily disabled');
+      return null as any;
+      
+      // Original implementation (commented out for now)
+      /*
       const response = await apiClient.post<SessionSummary>(
         `/sessions/${sessionId}/summary`,
         { message_count: messageCount }
       );
       return response;
+      */
     },
     onSuccess: (data) => {
       // Invalidate summaries cache
-      queryClient.invalidateQueries({ 
-        queryKey: summaryKeys.bySession(data.session_id) 
-      });
+      if (data) {
+        queryClient.invalidateQueries({ 
+          queryKey: summaryKeys.bySession(data.session_id) 
+        });
+      }
     },
   });
 };

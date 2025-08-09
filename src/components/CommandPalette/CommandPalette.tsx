@@ -145,7 +145,7 @@ export function CommandPalette({ open, onOpenChange, onSettingsOpen }: CommandPa
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm animate-in" />
+        <Dialog.Overlay className="fixed inset-0 bg-black/60 animate-in" />
         <Dialog.Content className="fixed left-[50%] top-[20%] max-h-[60vh] w-[90vw] max-w-[600px] 
                                  translate-x-[-50%] overflow-hidden rounded-lg 
                                  bg-background-secondary border border-border-subtle shadow-2xl

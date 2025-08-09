@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { Copy, Check, Terminal, Code2, FileText, Maximize2 } from 'lucide-react';
@@ -34,15 +34,18 @@ const customStyle = {
     padding: '1rem',
     fontSize: '14px',
     lineHeight: '1.6',
+    overflow: 'auto',
+    whiteSpace: 'pre',
   },
   'code[class*="language-"]': {
     ...vscDarkPlus['code[class*="language-"]'],
     background: 'transparent',
     fontSize: '14px',
+    whiteSpace: 'pre',
   },
 };
 
-export const CodeBlock = ({ language, value, inline }: CodeBlockProps) => {
+export const CodeBlock = memo(({ language, value, inline }: CodeBlockProps) => {
   const [copied, setCopied] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   
@@ -69,7 +72,7 @@ export const CodeBlock = ({ language, value, inline }: CodeBlockProps) => {
   }
   
   return (
-    <div className="message-code-block group relative my-4">
+    <div className="message-code-block group relative my-4" style={{ maxWidth: '100%', overflow: 'hidden' }}>
       {/* Header Bar */}
       <div className="flex items-center justify-between px-4 py-2 bg-gray-900/70 border-b border-gray-800">
         <div className="flex items-center gap-2">
@@ -110,16 +113,22 @@ export const CodeBlock = ({ language, value, inline }: CodeBlockProps) => {
       </div>
       
       {/* Code Content */}
-      <div className="relative overflow-x-auto">
+      <div 
+        className="code-scroll-container relative" 
+        style={{ maxWidth: '100%' }}
+      >
         <SyntaxHighlighter
           language={language || 'plaintext'}
           style={customStyle}
           showLineNumbers={lines > 5}
-          wrapLines={true}
+          wrapLines={false}
+          wrapLongLines={false}
           customStyle={{
             background: 'rgba(17, 24, 39, 0.5)',
             margin: 0,
             borderRadius: 0,
+            fontSize: '14px',
+            minWidth: 'max-content',
           }}
           lineNumberStyle={{
             minWidth: '3em',
@@ -155,4 +164,6 @@ export const CodeBlock = ({ language, value, inline }: CodeBlockProps) => {
       )}
     </div>
   );
-};
+});
+
+CodeBlock.displayName = 'CodeBlock';

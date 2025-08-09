@@ -111,7 +111,7 @@ export const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
         `}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-border-subtle/30 backdrop-blur-sm">
+        <div className="flex items-center justify-between p-4 border-b border-border-subtle">
           <h1 className="text-lg font-semibold bg-gradient-to-r from-white to-white/80 bg-clip-text text-transparent">AgentX</h1>
           <button
             onClick={onToggleCollapse}
@@ -260,8 +260,8 @@ export const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
       {isCollapsed && (
         <button
           onClick={onToggleCollapse}
-          className="fixed left-4 top-4 z-50 p-2.5 bg-background-secondary/95 backdrop-blur-sm
-                   hover:bg-background-tertiary rounded-xl border border-border-subtle/50
+          className="fixed left-4 top-4 z-50 p-2.5 bg-background-secondary
+                   hover:bg-background-tertiary rounded-xl border border-border-subtle
                    shadow-lg hover:shadow-xl transition-all duration-200 group"
           title="Open sidebar (⌘/)"
         >

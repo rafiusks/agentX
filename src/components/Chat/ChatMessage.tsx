@@ -5,20 +5,36 @@ import remarkGfm from 'remark-gfm'
 import { useUIStore } from '../../stores/ui.store'
 import { FunctionCall } from '../FunctionCall'
 import { SimpleMessageActions } from './SimpleMessageActions'
-import { CodeBlock } from './CodeBlock'
-import { formatCodeInText } from '../../utils/code-detection'
+import { markdownComponents } from './markdownComponents'
 import type { Message } from '../../hooks/queries/useChats'
 
 interface ChatMessageProps {
   message: Message
+  onRegenerate?: (messageId: string) => void
 }
 
 // Memoize the component to prevent unnecessary re-renders
-export const ChatMessage = memo(function ChatMessage({ message }: ChatMessageProps) {
+export const ChatMessage = memo(function ChatMessage({ message, onRegenerate }: ChatMessageProps) {
   const isUser = message.role === 'user'
   const isFunction = message.role === 'function'
   const isAssistant = message.role === 'assistant'
   const { mode } = useUIStore()
+  
+  // Debug logging for code detection - disabled to prevent re-renders
+  // if (isAssistant && message.content && !message.content.includes('```')) {
+  //   const codePatterns = [
+  //     'from ', 'import ', 'client =', 'response =', 'tools =', 
+  //     'def ', 'class ', 'function ', 'const ', 'let '
+  //   ];
+  //   const hasCodePattern = codePatterns.some(pattern => message.content?.includes(pattern));
+  //   if (hasCodePattern) {
+  //     console.log(`[ChatMessage] Message ${message.id?.slice(0, 8)} contains code patterns but no code blocks:`, {
+  //       id: message.id,
+  //       content: message.content.substring(0, 200),
+  //       hasCodeBlocks: message.content.includes('```')
+  //     });
+  //   }
+  // }
   
   // Show function calls inline
   if (message.functionCall && message.role === 'assistant') {
@@ -39,9 +55,14 @@ export const ChatMessage = memo(function ChatMessage({ message }: ChatMessagePro
   return (
     <div 
       className={`flex gap-3 ${isUser ? 'justify-end' : ''} relative group message-animate-in`}
+      data-message-id={message.id}
+      tabIndex={0}
+      role="article"
+      aria-label={`${message.role} message`}
     >
       {!isUser && !isFunction && (
-        <div className="message-avatar bg-gradient-to-br from-accent-blue to-accent-green">
+        <div className={`message-avatar bg-gradient-to-br from-accent-blue to-accent-green 
+                      ${message.isStreaming ? 'animate-shimmer' : ''}`}>
           <Bot size={16} className="text-white" />
         </div>
       )}
@@ -60,100 +81,33 @@ export const ChatMessage = memo(function ChatMessage({ message }: ChatMessagePro
           ? 'message-function'
           : 'message-assistant'
         }
-        ${message.isStreaming ? 'animate-pulse-subtle' : ''}
+        ${message.isStreaming ? 'animate-stream-pulse' : ''}
       `}>
-        {/* Simple Copy Action */}
+        {/* Message ID Badge */}
+        <div className="absolute -top-2 -left-2 px-2 py-0.5 bg-background-tertiary border border-border-subtle rounded-full">
+          <span className="text-[10px] font-mono text-foreground-muted">
+            {message.id ? `#${message.id.slice(0, 8)}` : '#temp'}
+          </span>
+        </div>
+        {/* Simple Copy/Regenerate Actions */}
         {!message.isStreaming && (
-          <SimpleMessageActions content={message.content} />
+          <SimpleMessageActions 
+            content={message.content || ''} 
+            isAssistant={isAssistant}
+            messageId={message.id}
+            onRegenerate={isAssistant && onRegenerate ? () => onRegenerate(message.id!) : undefined}
+          />
         )}
         
         {isUser ? (
-          <p className="message-content-user">{message.content}</p>
+          <p className="message-content-user" data-message-content>{message.content}</p>
         ) : (
-          <div className="prose-chat">
+          <div className="prose-chat" data-message-content>
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
-              components={{
-                h1: ({ children }) => <h1 className="text-xl font-semibold mt-6 mb-3 text-foreground-primary">{children}</h1>,
-                h2: ({ children }) => <h2 className="text-lg font-semibold mt-5 mb-2.5 text-foreground-primary">{children}</h2>,
-                h3: ({ children }) => <h3 className="text-base font-semibold mt-4 mb-2 text-foreground-primary">{children}</h3>,
-                p: ({ children }) => <p className="mb-4 text-foreground-primary">{children}</p>,
-                ul: ({ children }) => <ul className="mb-4 ml-4 space-y-2">{children}</ul>,
-                ol: ({ children }) => <ol className="mb-4 ml-4 space-y-2 list-decimal">{children}</ol>,
-                li: ({ children }) => <li className="pl-2">{children}</li>,
-                blockquote: ({ children }) => (
-                  <blockquote className="border-l-4 border-accent-blue/30 pl-4 py-2 my-4 bg-accent-blue/[0.03] italic text-foreground-secondary">
-                    {children}
-                  </blockquote>
-                ),
-                hr: () => <hr className="my-6 border-border-subtle/30" />,
-                pre: ({ children }) => {
-                  // Extract the code element from pre
-                  const codeElement = (children as any)?.props;
-                  if (codeElement?.children) {
-                    return <>{codeElement.children}</>;
-                  }
-                  return <pre className="m-0">{children}</pre>;
-                },
-                code: ({ className, children }) => {
-                  const match = /language-(\w+)/.exec(className || '');
-                  const language = match ? match[1] : undefined;
-                  const isInline = !className;
-                  
-                  return !isInline && match ? (
-                    <CodeBlock 
-                      language={language}
-                      value={String(children).replace(/\n$/, '')}
-                    />
-                  ) : (
-                    <CodeBlock 
-                      value={String(children)}
-                      inline={true}
-                    />
-                  );
-                },
-                strong: ({ children }) => <strong className="font-semibold text-foreground-primary">{children}</strong>,
-                em: ({ children }) => <em className="italic">{children}</em>,
-                a: ({ children, href }) => (
-                  <a href={href} className="text-accent-blue hover:text-accent-blue/80 underline underline-offset-2 transition-colors" target="_blank" rel="noopener noreferrer">
-                    {children}
-                  </a>
-                ),
-                table: ({ children }) => (
-                  <div className="overflow-x-auto my-4">
-                    <table className="w-full border-collapse">
-                      {children}
-                    </table>
-                  </div>
-                ),
-                thead: ({ children }) => (
-                  <thead className="bg-background-tertiary/50">
-                    {children}
-                  </thead>
-                ),
-                tbody: ({ children }) => (
-                  <tbody>
-                    {children}
-                  </tbody>
-                ),
-                tr: ({ children }) => (
-                  <tr className="border-b border-border-subtle/30 even:bg-background-secondary/30">
-                    {children}
-                  </tr>
-                ),
-                th: ({ children }) => (
-                  <th className="px-4 py-2 text-left font-semibold text-foreground-primary border border-border-subtle/50">
-                    {children}
-                  </th>
-                ),
-                td: ({ children }) => (
-                  <td className="px-4 py-2 border border-border-subtle/30">
-                    {children}
-                  </td>
-                ),
-              }}
+              components={markdownComponents}
             >
-              {formatCodeInText(message.content || (message.isStreaming ? '...' : ''))}
+              {message.content || (message.isStreaming ? '...' : '')}
             </ReactMarkdown>
           </div>
         )}
@@ -161,21 +115,32 @@ export const ChatMessage = memo(function ChatMessage({ message }: ChatMessagePro
         {/* Debug info for Pro mode */}
         {mode === 'pro' && !isUser && (
           <div className="mt-2 pt-2 border-t border-border-subtle">
-            <div className="flex items-center gap-2 text-xs text-foreground-muted">
-              <Code size={12} />
-              <span>ID: {message.id ? message.id.slice(0, 8) : 'temp'}</span>
-              {(message.created_at) && (
-                <>
-                  <span>•</span>
-                  <span>{new Date(message.created_at).toLocaleTimeString()}</span>
-                </>
-              )}
-              {message.isStreaming && (
-                <>
-                  <span>•</span>
-                  <span className="text-accent-blue">Streaming</span>
-                </>
-              )}
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-2 text-xs text-foreground-muted">
+                <Code size={12} />
+                <span>ID: {message.id ? message.id.slice(0, 8) : 'temp'}</span>
+                {(message.created_at) && (
+                  <>
+                    <span>•</span>
+                    <span>{new Date(message.created_at).toLocaleTimeString()}</span>
+                  </>
+                )}
+                {message.isStreaming && (
+                  <>
+                    <span>•</span>
+                    <span className="text-accent-blue">Streaming</span>
+                  </>
+                )}
+              </div>
+              <details className="text-xs">
+                <summary className="cursor-pointer text-foreground-muted hover:text-foreground-secondary">
+                  Raw content (first 200 chars)
+                </summary>
+                <pre className="mt-1 p-2 bg-background-tertiary rounded text-[10px] overflow-x-auto whitespace-pre-wrap">
+                  {(message.content || '').substring(0, 200)}
+                  {(message.content || '').length > 200 && '...'}
+                </pre>
+              </details>
             </div>
           </div>
         )}
@@ -187,5 +152,13 @@ export const ChatMessage = memo(function ChatMessage({ message }: ChatMessagePro
         </div>
       )}
     </div>
+  )
+}, (prevProps, nextProps) => {
+  // Only re-render if message content or streaming state changes
+  return (
+    prevProps.message.id === nextProps.message.id &&
+    prevProps.message.content === nextProps.message.content &&
+    prevProps.message.isStreaming === nextProps.message.isStreaming &&
+    prevProps.onRegenerate === nextProps.onRegenerate
   )
 })

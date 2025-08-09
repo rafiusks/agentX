@@ -59,8 +59,8 @@ export const MessageActions = ({
     <>
       {/* Floating Action Bar */}
       <div className="message-actions-bar absolute -top-8 right-0 flex items-center gap-1 
-                    bg-background-secondary/95 backdrop-blur-sm border border-border-subtle/50 
-                    rounded-lg px-2 py-1 shadow-lg opacity-0 group-hover:opacity-100 
+                    bg-background-secondary border border-border-subtle 
+                    rounded-xl px-2 py-1 shadow-lg opacity-0 group-hover:opacity-100 
                     transition-all duration-200 z-10">
         
         {/* Copy Button */}
@@ -156,7 +156,7 @@ export const MessageActions = ({
       
       {/* Edit Mode */}
       {isEditing && (
-        <div className="absolute inset-0 bg-background-primary/95 backdrop-blur-sm rounded-2xl p-4 z-20">
+        <div className="absolute inset-0 bg-background-primary rounded-2xl p-4 z-20 border border-border-subtle">
           <textarea
             value={editContent}
             onChange={(e) => setEditContent(e.target.value)}
