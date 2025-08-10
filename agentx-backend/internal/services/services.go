@@ -3,12 +3,15 @@ package services
 import (
 	"context"
 	"fmt"
+	"os"
 	
 	"github.com/jmoiron/sqlx"
 	"github.com/agentx/agentx-backend/internal/db"
 	"github.com/agentx/agentx-backend/internal/llm"
+	"github.com/agentx/agentx-backend/internal/mcp"
 	"github.com/agentx/agentx-backend/internal/providers"
 	"github.com/agentx/agentx-backend/internal/repository"
+	"github.com/agentx/agentx-backend/internal/repository/postgres"
 )
 
 // SessionProviderAdapter adapts OrchestrationService to llm.SessionProvider interface
@@ -46,6 +49,8 @@ type Services struct {
 	ContextMemory *ContextMemoryService
 	Config        *ConfigService
 	Summary       *SummaryService   // Summary generation service
+	MCP           *MCPService       // MCP server management service
+	BuiltinMCP    *mcp.BuiltinMCPManager // Built-in MCP server management
 	
 	// Legacy services (keeping minimal for compatibility)
 	Chat      *ChatService        // DEPRECATED: Use Orchestrator (kept for backwards compatibility)
@@ -84,9 +89,25 @@ func NewServices(
 	// Create the general LLM service  
 	fmt.Printf("[Services] Creating LLM service\n")
 	
+	// Create MCP service first
+	mcpRepo := postgres.NewMCPServerRepository(sqlDB)
+	mcpService := NewMCPService(mcpRepo)
+	
+	// Create Built-in MCP manager
+	// Get the backend path (assuming we're in the backend directory)
+	backendPath, err := os.Getwd()
+	if err != nil {
+		fmt.Printf("[Services] Warning: Could not determine backend path: %v\n", err)
+		backendPath = "/Users/rafael/Code/agentX/agentx-backend" // fallback
+	}
+	builtinMCPManager := mcp.NewBuiltinMCPManager(backendPath)
+	
 	// Create session provider adapter
 	sessionProvider := &SessionProviderAdapter{orchestrator: nil} // Will be set after orchestrator creation
 	llmService := llm.NewService(gateway, sessionProvider)
+	
+	// Create MCP tool integration
+	mcpTools := NewMCPToolIntegration(builtinMCPManager, mcpService)
 	
 	// Create the main orchestrator
 	orchestrator := NewOrchestrationService(
@@ -97,6 +118,7 @@ func NewServices(
 		connectionService,
 		configService,
 		llmService,
+		mcpTools,
 	)
 	
 	// Wire up the session provider with the orchestrator
@@ -122,6 +144,8 @@ func NewServices(
 		ContextMemory: contextMemory,
 		Config:        configService,
 		Summary:       summaryService,
+		MCP:           mcpService,
+		BuiltinMCP:    builtinMCPManager,
 		
 		// Minimal legacy services for compatibility
 		Chat:      NewChatService(providers, sessionRepo, messageRepo),

@@ -31,6 +31,7 @@ type OrchestrationService struct {
 	contextMemory *ContextMemoryService
 	connections   *ConnectionService
 	config        *ConfigService
+	mcpTools      *MCPToolIntegration // MCP tool integration
 }
 
 // NewOrchestrationService creates a new orchestration service
@@ -42,6 +43,7 @@ func NewOrchestrationService(
 	connections *ConnectionService,
 	config *ConfigService,
 	llmService *llm.Service,
+	mcpTools *MCPToolIntegration,
 ) *OrchestrationService {
 	return &OrchestrationService{
 		gateway:       gateway,
@@ -53,6 +55,7 @@ func NewOrchestrationService(
 		connections:   connections,
 		config:        config,
 		llmService:    llmService,
+		mcpTools:      mcpTools,
 	}
 }
 
@@ -62,11 +65,49 @@ func NewOrchestrationService(
 
 // ChatWithUser handles a chat request through the orchestrator with explicit userID
 func (o *OrchestrationService) ChatWithUser(ctx context.Context, userID uuid.UUID, req models.UnifiedChatRequest) (*models.UnifiedChatResponse, error) {
+	// Initialize user connections if needed
+	if userID != uuid.Nil {
+		if err := o.InitializeUserConnections(ctx, userID); err != nil {
+			fmt.Printf("[OrchestrationService.ChatWithUser] Warning: Failed to initialize connections: %v\n", err)
+		}
+	}
+	
 	// Check cache first
 	cacheKey := o.generateCacheKey("chat", userID.String(), req)
 	if cached := o.cache.Get(cacheKey); cached != nil {
 		if resp, ok := cached.(*models.UnifiedChatResponse); ok {
 			return resp, nil
+		}
+	}
+	
+	// Check if the user's message contains a tool invocation
+	if len(req.Messages) > 0 && o.mcpTools != nil {
+		lastMessage := req.Messages[len(req.Messages)-1]
+		if lastMessage.Role == "user" {
+			// Detect tool invocation
+			invocation, err := o.mcpTools.DetectToolInvocation(lastMessage.Content)
+			if err == nil && invocation != nil {
+				// Invoke the tool
+				toolResult, err := o.mcpTools.InvokeToolForUser(ctx, userID, invocation)
+				if err == nil && toolResult != nil {
+					// Format the result for chat
+					formattedResult := o.mcpTools.FormatToolResultForChat(toolResult, invocation.ToolName)
+					
+					// Add tool result to context
+					req.Messages = append(req.Messages, providers.Message{
+						Role:    "assistant",
+						Content: formattedResult,
+					})
+					
+					// If web search, also ask LLM to provide additional context
+					if invocation.ToolName == "web_search" {
+						req.Messages = append(req.Messages, providers.Message{
+							Role:    "user",
+							Content: "Based on these search results, please provide a comprehensive answer to my original question.",
+						})
+					}
+				}
+			}
 		}
 	}
 	
@@ -105,6 +146,44 @@ func (o *OrchestrationService) ChatWithUser(ctx context.Context, userID uuid.UUI
 
 // StreamChatWithUser handles streaming chat through the orchestrator with explicit userID
 func (o *OrchestrationService) StreamChatWithUser(ctx context.Context, userID uuid.UUID, req models.UnifiedChatRequest) (<-chan models.UnifiedStreamChunk, error) {
+	// Initialize user connections if needed
+	if userID != uuid.Nil {
+		if err := o.InitializeUserConnections(ctx, userID); err != nil {
+			fmt.Printf("[OrchestrationService.StreamChatWithUser] Warning: Failed to initialize connections: %v\n", err)
+		}
+	}
+	
+	// Check if the user's message contains a tool invocation
+	if len(req.Messages) > 0 && o.mcpTools != nil {
+		lastMessage := req.Messages[len(req.Messages)-1]
+		if lastMessage.Role == "user" {
+			// Detect tool invocation
+			invocation, err := o.mcpTools.DetectToolInvocation(lastMessage.Content)
+			if err == nil && invocation != nil {
+				// Invoke the tool
+				toolResult, err := o.mcpTools.InvokeToolForUser(ctx, userID, invocation)
+				if err == nil && toolResult != nil {
+					// Format the result for chat
+					formattedResult := o.mcpTools.FormatToolResultForChat(toolResult, invocation.ToolName)
+					
+					// Add tool result to context
+					req.Messages = append(req.Messages, providers.Message{
+						Role:    "assistant",
+						Content: formattedResult,
+					})
+					
+					// If web search, also ask LLM to provide additional context
+					if invocation.ToolName == "web_search" {
+						req.Messages = append(req.Messages, providers.Message{
+							Role:    "user",
+							Content: "Based on these search results, please provide a comprehensive answer to my original question.",
+						})
+					}
+				}
+			}
+		}
+	}
+	
 	// Enrich with context if needed
 	if req.SessionID != "" && o.contextMemory != nil {
 		messages, err := o.messageRepo.ListBySession(ctx, req.SessionID)
@@ -357,8 +436,15 @@ func (o *OrchestrationService) Chat(ctx context.Context, req models.UnifiedChatR
 			if uid, err := uuid.Parse(parts[0]); err == nil {
 				userID = uid
 			}
+		} else if len(parts) == 1 {
+			// Single value - assume it's just the user ID
+			if uid, err := uuid.Parse(parts[0]); err == nil {
+				userID = uid
+			}
 		}
 	}
+	
+	fmt.Printf("[OrchestrationService.Chat] Extracted UserID: %s from ConnectionID: %s\n", userID, req.Preferences.ConnectionID)
 	
 	// Pass through to the main ChatWithUser method
 	return o.ChatWithUser(ctx, userID, req)

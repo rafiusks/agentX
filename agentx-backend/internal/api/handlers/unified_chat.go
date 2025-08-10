@@ -30,12 +30,32 @@ func NewUnifiedChatHandler(chatService services.UnifiedChatInterface) *UnifiedCh
 
 // Chat handles POST /api/v1/chat
 func (h *UnifiedChatHandler) Chat(c *fiber.Ctx) error {
+	// Get user context
+	userContext := middleware.GetUserContext(c)
+	if userContext == nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Not authenticated",
+		})
+	}
+	
 	var req models.UnifiedChatRequest
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid request body",
 		})
 	}
+	
+	// Add user ID to preferences for proper provider lookup
+	if req.Preferences.ConnectionID != "" {
+		req.Preferences.ConnectionID = fmt.Sprintf("%s:%s", userContext.UserID.String(), req.Preferences.ConnectionID)
+	} else {
+		// If no connection ID, just pass the user ID
+		req.Preferences.ConnectionID = userContext.UserID.String()
+	}
+	
+	// Debug logging
+	fmt.Printf("[Chat] UserID: %s, Request - SessionID: %s, ConnectionID: %s, Messages: %d\n", 
+		userContext.UserID.String(), req.SessionID, req.Preferences.ConnectionID, len(req.Messages))
 	
 	// Get response
 	resp, err := h.chatService.Chat(c.Context(), req)

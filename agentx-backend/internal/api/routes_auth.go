@@ -86,16 +86,34 @@ func SetupRoutesWithAuth(app *fiber.App, svc *services.Services, authService *au
 	protected.Post("/connections/:id/test", connectionHandlers.TestConnection)
 	protected.Post("/connections/:id/set-default", connectionHandlers.SetDefaultConnection)
 	
-	// Provider management (admin only)
-	admin := protected.Group("", middleware.RequireRole(authService, "admin"))
-	admin.Get("/providers", handlers.GetProviders(svc))
-	admin.Put("/providers/:id/config", handlers.UpdateProviderConfig(svc))
-	admin.Post("/providers/:id/discover", handlers.DiscoverModels(svc))
-	admin.Get("/providers/health", handlers.GetProvidersHealth(svc))
-	
 	// Settings (user-specific)
 	protected.Get("/settings", handlers.GetSettings(svc))
 	protected.Put("/settings", handlers.UpdateSettings(svc))
+	
+	// MCP Server management (user-specific, not admin only)
+	mcpHandlers := handlers.NewMCPServerHandlers(svc.MCP)
+	protected.Get("/mcp/servers", mcpHandlers.ListServers)
+	protected.Get("/mcp/servers/:id", mcpHandlers.GetServer)
+	protected.Post("/mcp/servers", mcpHandlers.CreateServer)
+	protected.Put("/mcp/servers/:id", mcpHandlers.UpdateServer)
+	protected.Delete("/mcp/servers/:id", mcpHandlers.DeleteServer)
+	protected.Post("/mcp/servers/:id/toggle", mcpHandlers.ToggleServer)
+	protected.Post("/mcp/servers/:id/test", mcpHandlers.TestServer)
+	protected.Get("/mcp/servers/:id/tools", mcpHandlers.GetServerTools)
+	protected.Get("/mcp/servers/:id/resources", mcpHandlers.GetServerResources)
+	protected.Post("/mcp/tools/call", mcpHandlers.CallTool)
+	protected.Post("/mcp/resources/read", mcpHandlers.ReadResource)
+	
+	// Built-in MCP Server management (NEW)
+	builtinMCPHandlers := handlers.NewBuiltinMCPServerHandlers(svc.BuiltinMCP, svc.MCP)
+	protected.Get("/mcp/builtin", builtinMCPHandlers.ListBuiltinServers)
+	protected.Get("/mcp/builtin/user", builtinMCPHandlers.GetUserBuiltinServers)
+	protected.Get("/mcp/builtin/status", builtinMCPHandlers.GetBuiltinServerStatus)
+	protected.Post("/mcp/builtin/tools/call", builtinMCPHandlers.CallBuiltinTool)
+	protected.Get("/mcp/builtin/:id", builtinMCPHandlers.GetBuiltinServer)
+	protected.Get("/mcp/builtin/:id/tools", builtinMCPHandlers.GetBuiltinTools)
+	protected.Post("/mcp/builtin/:id/toggle", builtinMCPHandlers.ToggleBuiltinServer)
+	protected.Post("/mcp/builtin/:id/convert", builtinMCPHandlers.ConvertToRegularServer)
 	
 	// Context Memory management
 	contextHandlers := handlers.NewContextMemoryHandlers(svc.ContextMemory)
@@ -111,6 +129,15 @@ func SetupRoutesWithAuth(app *fiber.App, svc *services.Services, authService *au
 	protected.Get("/api-keys", handlers.ListAPIKeys(authService))
 	protected.Post("/api-keys", handlers.CreateAPIKey(authService))
 	protected.Delete("/api-keys/:id", handlers.RevokeAPIKey(authService))
+	
+	// ========================================
+	// Admin-only routes (must be at the end to avoid affecting other routes)
+	// ========================================
+	admin := protected.Group("", middleware.RequireRole(authService, "admin"))
+	admin.Get("/providers", handlers.GetProviders(svc))
+	admin.Put("/providers/:id/config", handlers.UpdateProviderConfig(svc))
+	admin.Post("/providers/:id/discover", handlers.DiscoverModels(svc))
+	admin.Get("/providers/health", handlers.GetProvidersHealth(svc))
 	
 	// ========================================
 	// WebSocket routes (with auth)

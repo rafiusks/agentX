@@ -87,20 +87,106 @@ export interface Settings {
 export class AgentXAPI {
   private baseURL: string;
   private ws: WebSocket | null = null;
+  private authToken: string | null = null;
 
   constructor(baseURL: string = 'http://localhost:8080/api/v1') {
     this.baseURL = baseURL;
+    // Load token from localStorage if available
+    if (typeof window !== 'undefined') {
+      this.authToken = localStorage.getItem('authToken');
+    }
+  }
+
+  // Set authentication token
+  setAuthToken(token: string | null) {
+    this.authToken = token;
+    if (typeof window !== 'undefined') {
+      if (token) {
+        localStorage.setItem('authToken', token);
+      } else {
+        localStorage.removeItem('authToken');
+      }
+    }
+  }
+
+  // Helper for authenticated requests
+  private async fetch(url: string, options: RequestInit = {}): Promise<Response> {
+    const headers: Record<string, string> = {
+      ...(options.headers as Record<string, string> || {}),
+    };
+    
+    if (this.authToken) {
+      headers['Authorization'] = `Bearer ${this.authToken}`;
+    }
+    
+    return fetch(url, {
+      ...options,
+      headers,
+    });
+  }
+
+  // Generic GET request
+  async get(path: string): Promise<any> {
+    const response = await this.fetch(`${this.baseURL}${path}`);
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(error || `Request failed: ${response.statusText}`);
+    }
+    return response.json();
+  }
+
+  // Generic POST request
+  async post(path: string, body?: any): Promise<any> {
+    const response = await this.fetch(`${this.baseURL}${path}`, {
+      method: 'POST',
+      headers: body ? { 'Content-Type': 'application/json' } : undefined,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(error || `Request failed: ${response.statusText}`);
+    }
+    if (response.status === 204) return null;
+    return response.json();
+  }
+
+  // Generic PUT request
+  async put(path: string, body?: any): Promise<any> {
+    const response = await this.fetch(`${this.baseURL}${path}`, {
+      method: 'PUT',
+      headers: body ? { 'Content-Type': 'application/json' } : undefined,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(error || `Request failed: ${response.statusText}`);
+    }
+    if (response.status === 204) return null;
+    return response.json();
+  }
+
+  // Generic DELETE request
+  async delete(path: string): Promise<any> {
+    const response = await this.fetch(`${this.baseURL}${path}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(error || `Request failed: ${response.statusText}`);
+    }
+    if (response.status === 204) return null;
+    return response.json();
   }
 
   // Provider Management
   async getProviders(): Promise<Provider[]> {
-    const response = await fetch(`${this.baseURL}/providers`);
+    const response = await this.fetch(`${this.baseURL}/providers`);
     if (!response.ok) throw new Error('Failed to fetch providers');
     return response.json();
   }
 
   async updateProviderConfig(providerId: string, config: Record<string, unknown>): Promise<void> {
-    const response = await fetch(`${this.baseURL}/providers/${providerId}/config`, {
+    const response = await this.fetch(`${this.baseURL}/providers/${providerId}/config`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(config),
@@ -109,7 +195,7 @@ export class AgentXAPI {
   }
 
   async discoverModels(providerId: string): Promise<Model[]> {
-    const response = await fetch(`${this.baseURL}/providers/${providerId}/discover`, {
+    const response = await this.fetch(`${this.baseURL}/providers/${providerId}/discover`, {
       method: 'POST',
     });
     if (!response.ok) throw new Error('Failed to discover models');
@@ -118,7 +204,7 @@ export class AgentXAPI {
 
   // Session Management
   async createSession(title?: string): Promise<Session> {
-    const response = await fetch(`${this.baseURL}/chat/sessions`, {
+    const response = await this.fetch(`${this.baseURL}/chat/sessions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title: title || 'New Chat' }),
@@ -128,19 +214,19 @@ export class AgentXAPI {
   }
 
   async getSessions(): Promise<Session[]> {
-    const response = await fetch(`${this.baseURL}/chat/sessions`);
+    const response = await this.fetch(`${this.baseURL}/chat/sessions`);
     if (!response.ok) throw new Error('Failed to fetch sessions');
     return response.json();
   }
 
   async getSession(sessionId: string): Promise<Session> {
-    const response = await fetch(`${this.baseURL}/chat/sessions/${sessionId}`);
+    const response = await this.fetch(`${this.baseURL}/chat/sessions/${sessionId}`);
     if (!response.ok) throw new Error('Failed to fetch session');
     return response.json();
   }
 
   async deleteSession(sessionId: string): Promise<void> {
-    const response = await fetch(`${this.baseURL}/chat/sessions/${sessionId}`, {
+    const response = await this.fetch(`${this.baseURL}/chat/sessions/${sessionId}`, {
       method: 'DELETE',
     });
     if (!response.ok) throw new Error('Failed to delete session');
@@ -159,7 +245,7 @@ export class AgentXAPI {
       tools?: Array<{ type: string; function: { name: string; description: string; parameters: unknown } }>;
     }
   ): Promise<CompletionResponse> {
-    const response = await fetch(`${this.baseURL}/chat/sessions/${sessionId}/messages`, {
+    const response = await this.fetch(`${this.baseURL}/chat/sessions/${sessionId}/messages`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -246,13 +332,13 @@ export class AgentXAPI {
 
   // Settings Management
   async getSettings(): Promise<Settings> {
-    const response = await fetch(`${this.baseURL}/settings`);
+    const response = await this.fetch(`${this.baseURL}/settings`);
     if (!response.ok) throw new Error('Failed to fetch settings');
     return response.json();
   }
 
   async updateSettings(settings: Partial<Settings>): Promise<void> {
-    const response = await fetch(`${this.baseURL}/settings`, {
+    const response = await this.fetch(`${this.baseURL}/settings`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(settings),
@@ -262,7 +348,7 @@ export class AgentXAPI {
 
   // Health Check
   async health(): Promise<{ status: string; service: string }> {
-    const response = await fetch(`${this.baseURL}/health`);
+    const response = await this.fetch(`${this.baseURL}/health`);
     if (!response.ok) throw new Error('Service unavailable');
     return response.json();
   }

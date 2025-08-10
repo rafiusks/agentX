@@ -1,0 +1,59 @@
+{
+  "name": "Web Search",
+  "description": "Robust web search with multiple providers and content extraction. Supports Bing, Brave, and DuckDuckGo with intelligent fallback.",
+  "command": "node",
+  "args": ["/Users/rafael/Code/agentX/agentx-web-search-mcp/dist/index.js"],
+  "env": {
+    "LOG_LEVEL": "info",
+    "BROWSER_HEADLESS": "true",
+    "MAX_SEARCH_RESULTS": "10",
+    "MAX_CONTENT_LENGTH": "50000",
+    "LOG_SEARCH_QUERIES": "false"
+  },
+  "enabled": true,
+  "tools": [
+    {
+      "name": "web_search",
+      "description": "Search the web using multiple search engines with fallback support",
+      "example": {
+        "query": "latest AI developments 2024",
+        "maxResults": 5,
+        "searchEngine": "auto",
+        "includeContent": false,
+        "timeRange": "month"
+      }
+    },
+    {
+      "name": "fetch_page", 
+      "description": "Extract content from any web page URL",
+      "example": {
+        "url": "https://example.com/article",
+        "format": "markdown",
+        "maxLength": 10000,
+        "includeLinks": true
+      }
+    },
+    {
+      "name": "search_and_summarize",
+      "description": "Research topics with automatic summarization",
+      "example": {
+        "query": "climate change renewable energy solutions",
+        "maxPages": 5,
+        "summaryLength": "detailed",
+        "includeLinks": true
+      }
+    }
+  ],
+  "features": [
+    "Multi-provider search with automatic fallback",
+    "Content extraction and markdown conversion", 
+    "Intelligent summarization with source attribution",
+    "Rate limiting and error recovery",
+    "Security protections against private URLs"
+  ],
+  "requirements": [
+    "Node.js 18+",
+    "Internet connection for web search",
+    "Optional: Brave Search API key for enhanced results"
+  ]
+}

@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -116,12 +117,14 @@ func AuthMiddleware(config AuthConfig) fiber.Handler {
 
 		// Check role if required
 		if config.RequireRole != "" && user.Role != config.RequireRole {
+			fmt.Printf("[AUTH] Role check failed: required=%s, user=%s\n", config.RequireRole, user.Role)
 			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 				"error": "Insufficient permissions",
 			})
 		}
 
 		// Store user context
+		fmt.Printf("[AUTH] User authenticated: %s (role=%s)\n", user.Email, user.Role)
 		storeUserContext(c, user, "jwt")
 		c.Locals("session_id", claims.SessionID)
 
