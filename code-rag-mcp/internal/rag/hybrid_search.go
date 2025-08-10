@@ -439,13 +439,22 @@ func (hs *HybridSearcher) expandQuery(query string) string {
 	
 	// Add language-specific context
 	if strings.Contains(lower, "go") || strings.Contains(lower, "golang") {
-		expanded += " golang go func"
+		expanded += " golang go func type struct interface"
 	}
 	if strings.Contains(lower, "js") || strings.Contains(lower, "javascript") {
-		expanded += " javascript js node async await"
+		expanded += " javascript js node async await promise function const let var"
+	}
+	if strings.Contains(lower, "ts") || strings.Contains(lower, "typescript") {
+		expanded += " typescript ts interface type enum class async await"
 	}
 	if strings.Contains(lower, "react") {
-		expanded += " component jsx tsx hooks"
+		expanded += " component jsx tsx hooks useState useEffect props state render"
+	}
+	if strings.Contains(lower, "vue") {
+		expanded += " component template script setup ref reactive computed"
+	}
+	if strings.Contains(lower, "angular") {
+		expanded += " component service module directive pipe observable"
 	}
 	
 	return expanded
@@ -523,6 +532,7 @@ func (hs *HybridSearcher) rerankResults(results []SearchResult, query string) []
 	
 	// File-type weighting for better relevance
 	fileTypeWeights := map[string]float32{
+		// Backend patterns
 		"handler":    1.5,  // API handlers likely most relevant
 		"controller": 1.5,  // Controllers are important
 		"service":    1.3,  // Business logic
@@ -531,11 +541,23 @@ func (hs *HybridSearcher) rerankResults(results []SearchResult, query string) []
 		"route":      1.4,  // Routing definitions
 		"api":        1.4,  // API definitions
 		"repository": 1.1,  // Data access layer
+		
+		// Frontend patterns
+		"component":  1.5,  // React/Vue/Angular components
+		"hook":       1.4,  // React hooks
+		"store":      1.3,  // State management
+		"context":    1.3,  // React context
+		"provider":   1.2,  // Context providers
+		"page":       1.4,  // Page components
+		"layout":     1.2,  // Layout components
+		
+		// Lower priority
 		"util":       0.8,  // Utility functions less likely
 		"helper":     0.8,  // Helper functions
 		"test":       0.7,  // Tests usually not what's wanted
 		"spec":       0.7,  // Test specs
 		"mock":       0.6,  // Mock implementations
+		"node_modules": 0.0, // Never want these
 	}
 	
 	for i := range results {
@@ -561,19 +583,27 @@ func (hs *HybridSearcher) rerankResults(results []SearchResult, query string) []
 		
 		// MASSIVE boost for exact name matches
 		if len(queryTokens) > 0 && results[i].Name != "" {
-			queryMainWord := queryTokens[0]
-			if len(queryTokens) > 1 {
-				// Try to find the most important word (longest or capitalized)
+			nameLower := strings.ToLower(results[i].Name)
+			queryLower := strings.ToLower(query)
+			
+			// Check for exact match first
+			if nameLower == queryLower {
+				boost *= 10.0  // Huge boost for exact full matches
+			} else {
+				// Check each query token
 				for _, token := range queryTokens {
-					if len(token) > len(queryMainWord) {
-						queryMainWord = token
+					if len(token) < 3 {
+						continue // Skip very short tokens
+					}
+					
+					if nameLower == token {
+						boost *= 7.0  // Very high boost for exact token match
+					} else if strings.HasPrefix(nameLower, token) {
+						boost *= 3.0  // Good boost for prefix match
+					} else if strings.Contains(nameLower, token) {
+						boost *= 1.5  // Moderate boost for contains
 					}
 				}
-			}
-			if strings.EqualFold(results[i].Name, queryMainWord) {
-				boost *= 5.0  // Massive boost for exact name matches
-			} else if strings.Contains(strings.ToLower(results[i].Name), queryMainWord) {
-				boost *= 2.5  // Good boost for partial name matches
 			}
 		}
 		

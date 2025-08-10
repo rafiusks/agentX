@@ -137,7 +137,8 @@ func (e *Engine) SearchInCollection(ctx context.Context, query string, collectio
 	// Check cache first
 	if e.searchCache != nil {
 		if cached, found := e.searchCache.Get(query, collection, limit); found {
-			return cached, nil
+			// Filter out node_modules even from cached results
+			return e.filterNodeModules(cached), nil
 		}
 	}
 	
@@ -156,12 +157,20 @@ func (e *Engine) SearchInCollection(ctx context.Context, query string, collectio
 	// Use hybrid search if available
 	if e.hybridSearcher != nil {
 		// Pass intent to hybrid searcher for optimized search
-		results, err := e.hybridSearcher.HybridSearchWithIntent(ctx, query, collection, limit, intent)
-		if err == nil && e.searchCache != nil {
-			// Cache successful results
-			e.searchCache.Set(query, collection, limit, results)
+		results, err := e.hybridSearcher.HybridSearchWithIntent(ctx, query, collection, limit*2, intent)
+		if err != nil {
+			return nil, err
 		}
-		return results, err
+		// Filter out node_modules and limit results
+		filtered := e.filterNodeModules(results)
+		if len(filtered) > limit {
+			filtered = filtered[:limit]
+		}
+		if e.searchCache != nil {
+			// Cache successful results
+			e.searchCache.Set(query, collection, limit, filtered)
+		}
+		return filtered, nil
 	}
 	
 	// Fall back to semantic-only search
@@ -203,9 +212,15 @@ func (e *Engine) Search(ctx context.Context, query string, language string, limi
 	}
 	
 	// Rerank results
-	results := e.reranker.Rerank(candidates, query, limit)
+	results := e.reranker.Rerank(candidates, query, limit*2)
 	
-	return results, nil
+	// Filter out node_modules and limit
+	filtered := e.filterNodeModules(results)
+	if len(filtered) > limit {
+		filtered = filtered[:limit]
+	}
+	
+	return filtered, nil
 }
 
 func (e *Engine) ExplainCode(ctx context.Context, code string, filePath string) (string, error) {
@@ -541,9 +556,9 @@ func discoverFilesWithExcludes(path string, excludePaths []string) ([]string, er
 	// Merge default excludes with provided excludes
 	allExcludes := append(defaultExcludes, excludePaths...)
 	
-	// Load gitignore patterns
+	// Load gitignore patterns with improved parser
 	gitignorePath := filepath.Join(path, ".gitignore")
-	gitignore, _ := NewGitIgnore(gitignorePath) // Ignore error if no .gitignore
+	gitignore, _ := NewImprovedGitIgnore(gitignorePath) // Ignore error if no .gitignore
 	
 	err := filepath.Walk(path, func(filePath string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -556,6 +571,12 @@ func discoverFilesWithExcludes(path string, excludePaths []string) ([]string, er
 		// Skip directories first
 		if info.IsDir() {
 			name := filepath.Base(filePath)
+			
+			// CRITICAL: Check for node_modules specifically
+			if name == "node_modules" || strings.Contains(relPath, "node_modules") {
+				skippedDirs = append(skippedDirs, relPath)
+				return filepath.SkipDir
+			}
 			
 			// Check default excludes first (before gitignore for efficiency)
 			for _, exclude := range allExcludes {
@@ -727,6 +748,22 @@ func (e *Engine) getLastIndexedCommit() string {
 	// This would be stored in the hash store or database
 	// For now, return empty to index all changes
 	return ""
+}
+
+// filterNodeModules removes any results from node_modules directories
+func (e *Engine) filterNodeModules(results []SearchResult) []SearchResult {
+	filtered := make([]SearchResult, 0, len(results))
+	for _, result := range results {
+		// Check if the file path contains node_modules
+		if !strings.Contains(result.FilePath, "node_modules") &&
+		   !strings.Contains(result.FilePath, "vendor") &&
+		   !strings.Contains(result.FilePath, ".next") &&
+		   !strings.Contains(result.FilePath, "dist/") &&
+		   !strings.Contains(result.FilePath, "build/") {
+			filtered = append(filtered, result)
+		}
+	}
+	return filtered
 }
 
 func (e *Engine) getTransitiveDependencies(deps *Dependencies) *Dependencies {
