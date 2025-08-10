@@ -1,0 +1,55 @@
+server:
+  port: 3333
+  host: 0.0.0.0
+  log_level: info
+
+embeddings:
+  provider: codet5  # Options: codet5, codebert, openai, local
+  model: Salesforce/codet5p-110m-embedding
+  cache_size: 10000
+  batch_size: 32
+  # api_key: ${HUGGINGFACE_API_KEY}  # For HuggingFace models
+  # api_key: ${OPENAI_API_KEY}  # For OpenAI embeddings
+
+chunking:
+  strategy: ast_aware  # Options: ast_aware, sliding_window, semantic
+  max_chunk_size: 512
+  chunk_overlap: 128
+  min_chunk_size: 50
+  languages:
+    - go
+    - javascript
+    - typescript
+    - python
+    - rust
+    - java
+    - c
+    - cpp
+
+vectordb:
+  type: qdrant  # Options: qdrant, chroma, weaviate
+  url: ${VECTOR_DB_URL:-http://localhost:6333}
+  collection_name: code_embeddings
+  dimension: 768
+  distance: cosine  # Options: cosine, euclidean, dot
+  timeout: 30s
+
+search:
+  default_limit: 10
+  max_limit: 50
+  rerank_factor: 3  # Retrieve 3x candidates for reranking
+  min_score: 0.5
+
+indexing:
+  batch_size: 100
+  max_file_size: 1048576  # 1MB
+  ignored_patterns:
+    - "*.min.js"
+    - "*.min.css"
+    - "node_modules/**"
+    - "vendor/**"
+    - ".git/**"
+    - "dist/**"
+    - "build/**"
+    - "*.test.*"
+    - "*_test.*"

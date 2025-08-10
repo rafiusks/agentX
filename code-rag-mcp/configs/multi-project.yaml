@@ -1,0 +1,41 @@
+server:
+  port: 3333
+  host: 0.0.0.0
+  log_level: info
+
+embeddings:
+  provider: codet5
+  model: Salesforce/codet5p-110m-embedding
+  cache_size: 10000
+  batch_size: 32
+
+chunking:
+  strategy: ast_aware
+  max_chunk_size: 512
+  chunk_overlap: 128
+  min_chunk_size: 50
+  languages:
+    - go
+    - javascript
+    - typescript
+    - python
+    - rust
+
+vectordb:
+  type: qdrant
+  url: ${VECTOR_DB_URL:-http://localhost:6333}
+  # Use project name as collection name
+  collection_name: ${PROJECT_NAME:-code_embeddings}
+  # Or use dynamic collections based on repository path
+  use_dynamic_collections: true
+  collection_prefix: "code_rag_"
+  dimension: 768
+  distance: cosine
+  timeout: 30s
+
+search:
+  default_limit: 10
+  max_limit: 50
+  # Allow searching across all projects or specific ones
+  cross_project_search: false
+  project_isolation: true

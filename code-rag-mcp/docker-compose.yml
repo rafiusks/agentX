@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  # Qdrant vector database
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: code-rag-qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    environment:
+      - QDRANT__LOG_LEVEL=INFO
+
+  # Python embedding service with CodeBERT
+  embedding-service:
+    build:
+      context: ./embedding-service
+      dockerfile: Dockerfile
+    container_name: code-rag-embedding
+    ports:
+      - "8001:8001"
+    environment:
+      - EMBEDDING_MODEL=microsoft/codebert-base
+      - EMBEDDING_SERVICE_PORT=8001
+    volumes:
+      - huggingface_cache:/root/.cache/huggingface
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Cross-encoder reranking service
+  cross-encoder-service:
+    build:
+      context: ./cross-encoder-service
+      dockerfile: Dockerfile
+    container_name: code-rag-cross-encoder
+    ports:
+      - "8002:8002"
+    environment:
+      - CROSS_ENCODER_MODEL=cross-encoder/ms-marco-MiniLM-L-6-v2
+      - CROSS_ENCODER_PORT=8002
+    volumes:
+      - huggingface_cache:/root/.cache/huggingface
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  qdrant_storage:
+  huggingface_cache:

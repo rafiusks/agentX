@@ -549,6 +549,133 @@ npm run dev
 
 ---
 
+## Standalone Projects
+
+### Code RAG MCP Server (2025-01-09) ✅
+
+Created a standalone MCP server for intelligent code search and analysis:
+
+**Version 1.0 - Initial Implementation:**
+- [x] Standalone MCP server architecture in `code-rag-mcp/`
+- [x] MCP protocol implementation with 6 tools and 3 resources
+- [x] Hybrid embedding system (CodeT5, OpenAI, local models)
+- [x] AST-aware code chunking for Go, JS/TS, Python
+- [x] Vector database abstraction (Qdrant, Chroma, Weaviate)
+- [x] RAG pipeline with retrieval and reranking
+- [x] Docker deployment with docker-compose
+- [x] Comprehensive documentation and examples
+
+**Version 2.0 - Simplified UX (Apple-inspired redesign):**
+- [x] Single `code-rag` command (replaced 7 confusing menu options)
+- [x] Auto-configuration on first run (30-second setup)
+- [x] Natural language interface ("find websocket handler")
+- [x] Automatic Claude Code detection and configuration
+- [x] Zero-config operation with smart defaults
+- [x] Progressive disclosure (complexity hidden by default)
+- [x] Archived complex scripts in favor of one simple entry point
+
+**Version 3.0 - One Project Per Install:**
+- [x] Project-local installation (no global state)
+- [x] Each project gets its own Code RAG instance
+- [x] Complete isolation between projects
+- [x] Simple `.code-rag/` folder contains everything
+- [x] Auto-indexes on first run
+- [x] No configuration needed
+
+**Version 3.1 - Smart Init with Exclusions (2025-01-10):**
+- [x] Added `init` command with smart project detection
+- [x] Detects when Code RAG is being developed inside another project
+- [x] Offers to index parent project while excluding Code RAG folder
+- [x] Supports custom exclude paths in configuration
+- [x] Implements exclude path filtering in file discovery
+- [x] Successfully tested with AgentX parent project
+
+**Version 3.2 - Gitignore Support & File Visibility (2025-01-10):**
+- [x] Added `.gitignore` parsing and respect during indexing
+- [x] Added `.code-ragignore` for additional RAG-specific patterns
+- [x] Implemented `code-rag list` command to show indexed files
+- [x] Added verbose mode (`-v`) to list all indexed files
+- [x] Shows file type breakdown and exclusion information
+- [x] Displays skipped directories and file counts during indexing
+- [x] Fixed file discovery to properly walk all directories
+
+**Usage:**
+```bash
+# In any project:
+curl -L https://get.code-rag.dev | sh
+./code-rag init  # Smart initialization
+
+# Or when developing Code RAG inside another project:
+./code-rag init
+# > Detected: You're developing Code RAG inside the 'agentX' project.
+# > 1. Index the parent project (agentX) while excluding code-rag-mcp
+# > Choice [1]: ✓
+```
+
+**Version 3.3 - Full CodeBERT Integration (2025-01-10):**
+- [x] Created Python embedding service with FastAPI
+- [x] Integrated real CodeBERT model (microsoft/codebert-base)
+- [x] Built HTTP client in Go to communicate with Python service
+- [x] Added Docker Compose setup for all services
+- [x] Implemented automatic fallback when service unavailable
+- [x] Added health checks and status monitoring
+- [x] Created Makefile for easy management
+
+**Architecture:**
+```
+┌─────────────┐     ┌──────────────┐     ┌─────────────┐
+│  Code RAG   │────▶│  Embedding   │────▶│  CodeBERT   │
+│     CLI     │     │   Service    │     │    Model    │
+│     (Go)    │     │   (Python)   │     │ (HuggingFace)│
+└─────────────┘     └──────────────┘     └─────────────┘
+       │
+       ▼
+┌─────────────┐
+│   Qdrant    │
+│   Vector    │
+│   Database  │
+└─────────────┘
+```
+
+**Usage with Real CodeBERT:**
+```bash
+# Start all services
+make start
+
+# Re-index with CodeBERT embeddings
+make index
+
+# Search with semantic understanding
+./code-rag/code-rag search "websocket connection handling"
+```
+
+**Version 3.4 - Integrated Service Management (2025-01-10):**
+- [x] Created integrated CLI that manages services lifecycle
+- [x] Auto-starts Docker services when CLI starts
+- [x] Auto-stops services when CLI exits (Ctrl+C or exit command)
+- [x] Health monitoring with automatic restart if unhealthy
+- [x] Graceful shutdown with signal handling
+- [x] Interactive mode with services command
+- [x] Standalone mode flag for manual control
+
+**Key Features:**
+- **Zero Configuration**: Just run `./code-rag` and everything starts
+- **Automatic Lifecycle**: Services start/stop with the CLI
+- **Health Monitoring**: Automatically restarts unhealthy services
+- **Flexible Modes**: Use `--standalone` for manual control
+
+**Next Steps:**
+- [ ] Add support for CodeT5 and other models
+- [ ] Implement incremental indexing with Git integration
+- [ ] Add more language-specific AST parsing
+- [ ] Add web search augmentation
+- [ ] Implement incremental Git-based indexing
+- [ ] Create brew formula for easier installation
+
+This MCP server now provides enterprise-grade code intelligence with consumer-grade simplicity.
+
+---
+
 ## Notes
 
 - **Priority Levels**: P0 = Must have for phase completion, P1 = Should have, P2 = Nice to have, P3 = Future enhancement

@@ -36,13 +36,27 @@ echo -e "${GREEN}Configure providers through the web UI after startup.${NC}"
 
 # Start PostgreSQL
 echo -e "${GREEN}Starting PostgreSQL...${NC}"
-cd agentx-backend
-docker-compose -f docker-compose.dev.yml up -d
+(cd agentx-backend && docker-compose -f docker-compose.dev.yml up -d)
+
+# Start Code RAG services (Qdrant + Embedding service)
+echo -e "${GREEN}Starting Code RAG services...${NC}"
+(cd code-rag-mcp && docker-compose up -d)
+
+# Wait for Code RAG services to be ready
+echo -e "${GREEN}Waiting for Code RAG services to be ready...${NC}"
+for i in {1..60}; do
+    if curl -s http://localhost:6333/collections > /dev/null 2>&1 && curl -s http://localhost:8001/health > /dev/null 2>&1; then
+        echo -e "${GREEN}Code RAG services are ready!${NC}"
+        break
+    fi
+    echo -n "."
+    sleep 1
+done
 
 # Wait for PostgreSQL to be ready
 echo -e "${GREEN}Waiting for PostgreSQL to be ready...${NC}"
 for i in {1..30}; do
-    if docker-compose -f docker-compose.dev.yml exec -T postgres pg_isready -U agentx > /dev/null 2>&1; then
+    if (cd agentx-backend && docker-compose -f docker-compose.dev.yml exec -T postgres pg_isready -U agentx > /dev/null 2>&1); then
         echo -e "${GREEN}PostgreSQL is ready!${NC}"
         break
     fi
@@ -51,18 +65,16 @@ for i in {1..30}; do
 done
 
 # Check if config.json exists
-if [ ! -f config.json ]; then
+if [ ! -f agentx-backend/config.json ]; then
     echo -e "${YELLOW}Creating config.json from template...${NC}"
-    cp config.example.json config.json
+    cp agentx-backend/config.example.json agentx-backend/config.json
 fi
 
 # Start backend with Air
 echo -e "${GREEN}Starting Go backend with hot reloading...${NC}"
 # Use full path to air since it might not be in PATH yet
-$HOME/go/bin/air &
+(cd agentx-backend && $HOME/go/bin/air) &
 BACKEND_PID=$!
-
-cd ..
 
 # Wait for backend to be ready
 echo -e "${GREEN}Waiting for backend to be ready...${NC}"
@@ -75,6 +87,12 @@ for i in {1..30}; do
     sleep 1
 done
 
+# Start Code RAG MCP server
+echo -e "${GREEN}Starting Code RAG MCP HTTP server...${NC}"
+(cd code-rag-mcp && ./.code-rag/code-rag mcp-http > /tmp/code-rag-mcp.log 2>&1) &
+MCP_PID=$!
+echo -e "${GREEN}Code RAG MCP HTTP server started on :9000 (PID: $MCP_PID)${NC}"
+
 # Start frontend
 echo -e "${GREEN}Starting React frontend...${NC}"
 npm run dev &
@@ -85,9 +103,9 @@ cleanup() {
     echo -e "\n${YELLOW}Shutting down...${NC}"
     kill $BACKEND_PID 2>/dev/null
     kill $FRONTEND_PID 2>/dev/null
-    cd agentx-backend
-    docker-compose -f docker-compose.dev.yml down
-    cd ..
+    kill $MCP_PID 2>/dev/null
+    (cd agentx-backend && docker-compose -f docker-compose.dev.yml down)
+    (cd code-rag-mcp && docker-compose down)
     echo -e "${GREEN}Shutdown complete${NC}"
 }
 
@@ -98,6 +116,9 @@ echo -e "\n${GREEN}AgentX is running!${NC}"
 echo -e "Frontend: ${GREEN}http://localhost:1420${NC}"
 echo -e "Backend API: ${GREEN}http://localhost:8080/api/v1${NC}"
 echo -e "PostgreSQL: ${GREEN}localhost:5432${NC}"
+echo -e "Code RAG MCP: ${GREEN}http://localhost:9000 (log: /tmp/code-rag-mcp.log)${NC}"
+echo -e "Qdrant Vector DB: ${GREEN}http://localhost:6333${NC}"
+echo -e "CodeBERT Service: ${GREEN}http://localhost:8001${NC}"
 echo -e "\nPress ${YELLOW}Ctrl+C${NC} to stop all services"
 
 # Wait for background processes

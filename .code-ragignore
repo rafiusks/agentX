@@ -1,0 +1,25 @@
+# Code RAG specific ignore patterns
+# These are in addition to .gitignore
+
+# Test files that might clutter search results
+test-*.html
+test-*.js
+*.test.ts
+*.spec.ts
+
+# Documentation that's not code
+*.md
+!README.md
+!CLAUDE.md
+
+# Large generated files
+*.min.js
+*.min.css
+*.bundle.js
+
+# Binary and data files
+*.db
+*.sqlite
+*.pkl
+*.npy
+*.h5

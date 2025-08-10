@@ -53,16 +53,21 @@ stop:
 	@# Stop Docker containers
 	@docker-compose -f docker-compose.full.yml down 2>/dev/null || true
 	@cd agentx-backend && docker-compose -f docker-compose.dev.yml down 2>/dev/null || true
+	@cd code-rag-mcp && docker-compose down 2>/dev/null || true
 	@# Stop development processes
 	@pkill -f "air" 2>/dev/null || true
 	@pkill -f "npm run dev" 2>/dev/null || true
 	@pkill -f "vite" 2>/dev/null || true
 	@pkill -f "go run cmd/server/main.go" 2>/dev/null || true
+	@pkill -f "code-rag mcp-http" 2>/dev/null || true
 	@# Kill anything on our ports
 	@lsof -ti:8080 | xargs kill -9 2>/dev/null || true
 	@lsof -ti:1420 | xargs kill -9 2>/dev/null || true
 	@lsof -ti:5173 | xargs kill -9 2>/dev/null || true
 	@lsof -ti:3000 | xargs kill -9 2>/dev/null || true
+	@lsof -ti:6333 | xargs kill -9 2>/dev/null || true  # Qdrant
+	@lsof -ti:8001 | xargs kill -9 2>/dev/null || true  # CodeBERT service
+	@lsof -ti:9000 | xargs kill -9 2>/dev/null || true  # Code RAG MCP HTTP server
 	@echo "All services stopped"
 
 # Clean up everything

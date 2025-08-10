@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "code-rag": {
+      "command": "/Users/rafael/Code/agentX/code-rag-mcp/.code-rag/code-rag",
+      "args": ["mcp-server"]
+    }
+  }
+}

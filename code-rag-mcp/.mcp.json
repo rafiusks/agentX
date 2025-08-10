@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "code-rag": {
+      "command": "./.code-rag/code-rag",
+      "args": ["mcp-server"],
+      "env": {
+        "PROJECT_PATH": "."
+      }
+    }
+  }
+}
