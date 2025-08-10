@@ -1,0 +1,84 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Go workspace file
+go.work
+
+# Compiled binaries
+/server
+/code-rag
+/code-rag-mcp
+/bin/
+
+# Test files
+test-*.go
+*_test_*.go
+test_*.sh
+
+# IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Code RAG specific
+.code-rag/
+*.embedding.cache
+.code-rag-cache/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+/tmp/
+
+# Build directories
+/dist/
+/build/
+/out/
+
+# Coverage reports
+coverage/
+*.cover
+*.coverage
+.coverage
+
+# Python (for embedding service)
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+.venv/
+venv/
+ENV/
+env/
+
+# Node modules (if any frontend added)
+node_modules/
+
+# Documentation builds
+docs/_build/
+site/

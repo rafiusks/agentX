@@ -1,0 +1,88 @@
+# Code RAG ignore file
+# Files and directories to exclude from indexing
+
+# Dependencies
+node_modules/
+vendor/
+.venv/
+venv/
+
+# Build outputs
+dist/
+build/
+target/
+*.exe
+*.dll
+*.so
+*.dylib
+bin/
+out/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Test files (optional - uncomment if you want to exclude tests)
+# *_test.go
+# *.test.js
+# *.spec.ts
+
+# Cache and temporary files
+.cache/
+.tmp/
+*.tmp
+*.temp
+*.log
+
+# Code RAG specific
+.code-rag/
+*.embedding.cache
+
+# Documentation builds
+docs/_build/
+site/
+
+# Version control
+.git/
+.svn/
+.hg/
+
+# Package files
+*.tar.gz
+*.zip
+*.rar
+
+# Language specific
+__pycache__/
+*.pyc
+.pytest_cache/
+.tox/
+coverage/
+.coverage
+htmlcov/
+.nyc_output/
+.next/
+.nuxt/
+
+# Binary files
+*.pdf
+*.doc
+*.docx
+*.xls
+*.xlsx
+*.ppt
+*.pptx
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.ico
+*.svg
+*.mp4
+*.mp3
+*.mov
+*.avi

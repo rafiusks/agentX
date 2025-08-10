@@ -3,6 +3,7 @@ package rag
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -53,16 +54,20 @@ func (i *Indexer) IndexToCollection(ctx context.Context, chunk Chunk, embedding 
 	id := generateChunkID(chunk)
 	
 	metadata := map[string]interface{}{
-		"file_path":  chunk.FilePath,
-		"language":   chunk.Language,
-		"line_start": chunk.LineStart,
-		"line_end":   chunk.LineEnd,
-		"type":       chunk.Type,
-		"name":       chunk.Name,
-		"code":       chunk.Code,
-		"repository": chunk.Repository,
-		"indexed_at": time.Now().Unix(),
-		"collection": collection,
+		"file_path":      chunk.FilePath,
+		"language":       chunk.Language,
+		"line_start":     chunk.LineStart,
+		"line_end":       chunk.LineEnd,
+		"type":           chunk.Type,
+		"name":           chunk.Name,
+		"code":           chunk.Code,
+		"repository":     chunk.Repository,
+		"indexed_at":     time.Now().Unix(),
+		"collection":     collection,
+		"symbols":        strings.Join(chunk.Symbols, " "),
+		"signatures":     chunk.Signatures,
+		"file_context":   chunk.FileContext,
+		"parent_context": chunk.ParentContext,
 	}
 	
 	// Ensure collection exists

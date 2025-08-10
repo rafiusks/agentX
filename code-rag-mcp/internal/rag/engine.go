@@ -141,6 +141,10 @@ func (e *Engine) SearchInCollection(ctx context.Context, query string, collectio
 		}
 	}
 	
+	// Detect query intent to optimize search
+	analyzer := NewQueryAnalyzer()
+	intent := analyzer.AnalyzeQuery(query)
+	
 	// Search in specific collection
 	startTime := time.Now()
 	defer func() {
@@ -151,7 +155,8 @@ func (e *Engine) SearchInCollection(ctx context.Context, query string, collectio
 	
 	// Use hybrid search if available
 	if e.hybridSearcher != nil {
-		results, err := e.hybridSearcher.HybridSearch(ctx, query, collection, limit)
+		// Pass intent to hybrid searcher for optimized search
+		results, err := e.hybridSearcher.HybridSearchWithIntent(ctx, query, collection, limit, intent)
 		if err == nil && e.searchCache != nil {
 			// Cache successful results
 			e.searchCache.Set(query, collection, limit, results)
@@ -237,7 +242,24 @@ func (e *Engine) FindSimilar(ctx context.Context, code string, threshold float64
 }
 
 func (e *Engine) IndexRepositoryToCollection(ctx context.Context, path string, collection string, incremental bool) (*IndexStats, error) {
-	return e.IndexRepositoryToCollectionWithExcludes(ctx, path, collection, incremental, nil)
+	return e.IndexRepositoryToCollectionWithOptions(ctx, path, collection, incremental, false, nil)
+}
+
+func (e *Engine) IndexRepositoryToCollectionWithOptions(ctx context.Context, path string, collection string, incremental bool, forceClean bool, excludePaths []string) (*IndexStats, error) {
+	// Clear index if forced
+	if forceClean {
+		if !e.silent {
+			fmt.Fprintf(os.Stderr, "Clearing existing index for collection %s...\n", collection)
+		}
+		err := e.ClearIndex(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to clear index: %w", err)
+		}
+		// Force non-incremental after clearing
+		incremental = false
+	}
+	
+	return e.IndexRepositoryToCollectionWithExcludes(ctx, path, collection, incremental, excludePaths)
 }
 
 func (e *Engine) IndexRepositoryToCollectionWithExcludes(ctx context.Context, path string, collection string, incremental bool, excludePaths []string) (*IndexStats, error) {
@@ -249,6 +271,26 @@ func (e *Engine) IndexRepositoryToCollectionWithExcludes(ctx context.Context, pa
 	files, err := discoverFilesWithExcludes(path, excludePaths)
 	if err != nil {
 		return nil, fmt.Errorf("failed to discover files: %w", err)
+	}
+	
+	// Debug: log actual files being indexed
+	if !e.silent {
+		fmt.Fprintf(os.Stderr, "DEBUG: Found %d files to index\n", len(files))
+		nodeModulesCount := 0
+		for _, f := range files {
+			if strings.Contains(f, "node_modules") {
+				nodeModulesCount++
+			}
+		}
+		if nodeModulesCount > 0 {
+			fmt.Fprintf(os.Stderr, "ERROR: %d node_modules files are in the list!\n", nodeModulesCount)
+		}
+		// Show first few files
+		if len(files) > 0 && len(files) < 20 {
+			for _, f := range files {
+				fmt.Fprintf(os.Stderr, "  - %s\n", f)
+			}
+		}
 	}
 	
 	// Filter for incremental indexing if needed
@@ -300,7 +342,50 @@ func (e *Engine) IndexRepositoryToCollectionWithExcludes(ctx context.Context, pa
 	return stats, nil
 }
 
+func (e *Engine) ClearIndex(ctx context.Context) error {
+	// Clear all caches
+	if e.searchCache != nil {
+		e.searchCache.Clear()
+	}
+	if e.embeddingCache != nil {
+		e.embeddingCache.Clear()
+	}
+	if e.chunkCache != nil {
+		e.chunkCache.Clear()
+	}
+	
+	// Clear Bleve index
+	if e.bleveSearcher != nil {
+		err := e.bleveSearcher.ClearIndex()
+		if err != nil {
+			return fmt.Errorf("failed to clear Bleve index: %w", err)
+		}
+	}
+	
+	// Reset statistics
+	e.stats = &Statistics{}
+	
+	return nil
+}
+
 func (e *Engine) IndexRepository(ctx context.Context, path string, incremental bool) (*IndexStats, error) {
+	return e.IndexRepositoryWithOptions(ctx, path, incremental, false)
+}
+
+func (e *Engine) IndexRepositoryWithOptions(ctx context.Context, path string, incremental bool, forceClean bool) (*IndexStats, error) {
+	// Clear index if forced
+	if forceClean {
+		if !e.silent {
+			fmt.Fprintf(os.Stderr, "Clearing existing index...\n")
+		}
+		err := e.ClearIndex(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to clear index: %w", err)
+		}
+		// Force non-incremental after clearing
+		incremental = false
+	}
+	
 	startTime := time.Now()
 	stats := &IndexStats{}
 	
@@ -436,8 +521,29 @@ func discoverFilesWithExcludes(path string, excludePaths []string) ([]string, er
 	var skippedCount int
 	var skippedDirs []string
 	
-	// TODO: Implement proper gitignore support
-	// For now, we'll rely on the excludePaths parameter
+	// Default excludes for common directories that should always be ignored
+	defaultExcludes := []string{
+		"node_modules",
+		"vendor", 
+		"dist",
+		"build",
+		".git",
+		".next",
+		"out",
+		"target",
+		".pytest_cache",
+		"__pycache__",
+		".tox",
+		".coverage",
+		"htmlcov",
+	}
+	
+	// Merge default excludes with provided excludes
+	allExcludes := append(defaultExcludes, excludePaths...)
+	
+	// Load gitignore patterns
+	gitignorePath := filepath.Join(path, ".gitignore")
+	gitignore, _ := NewGitIgnore(gitignorePath) // Ignore error if no .gitignore
 	
 	err := filepath.Walk(path, func(filePath string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -447,10 +553,25 @@ func discoverFilesWithExcludes(path string, excludePaths []string) ([]string, er
 		// Get relative path for exclusion checking
 		relPath, _ := filepath.Rel(path, filePath)
 		
-		// Skip directories
+		// Skip directories first
 		if info.IsDir() {
-			// Skip hidden directories (except .github which often has workflows)
 			name := filepath.Base(filePath)
+			
+			// Check default excludes first (before gitignore for efficiency)
+			for _, exclude := range allExcludes {
+				if name == exclude {
+					skippedDirs = append(skippedDirs, relPath)
+					return filepath.SkipDir
+				}
+			}
+			
+			// Check gitignore for directories
+			if gitignore != nil && gitignore.IsIgnored(filePath, true) {
+				skippedDirs = append(skippedDirs, relPath)
+				return filepath.SkipDir
+			}
+			
+			// Skip hidden directories (except .github which often has workflows)
 			if strings.HasPrefix(name, ".") && name != ".github" {
 				if name != "." { // Don't add root to skipped
 					skippedDirs = append(skippedDirs, relPath)
@@ -458,18 +579,17 @@ func discoverFilesWithExcludes(path string, excludePaths []string) ([]string, er
 				return filepath.SkipDir
 			}
 			
-			// Check if this directory should be excluded
-			for _, exclude := range excludePaths {
-				if name == exclude || strings.HasPrefix(relPath, exclude+string(filepath.Separator)) {
-					skippedDirs = append(skippedDirs, relPath)
-					return filepath.SkipDir
-				}
-			}
+			return nil
+		}
+		
+		// Check gitignore for files
+		if gitignore != nil && gitignore.IsIgnored(filePath, false) {
+			skippedCount++
 			return nil
 		}
 		
 		// Check if file path matches any exclude pattern
-		for _, exclude := range excludePaths {
+		for _, exclude := range allExcludes {
 			if matched, _ := filepath.Match(exclude, filepath.Base(filePath)); matched {
 				skippedCount++
 				return nil

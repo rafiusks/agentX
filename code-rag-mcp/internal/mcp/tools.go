@@ -169,7 +169,12 @@ func (s *Server) executeIndexRepository(ctx context.Context, args map[string]int
 		incremental = inc
 	}
 	
-	stats, err := s.ragEngine.IndexRepository(ctx, path, incremental)
+	forceClean := false
+	if fc, ok := args["force_clean"].(bool); ok {
+		forceClean = fc
+	}
+	
+	stats, err := s.ragEngine.IndexRepositoryWithOptions(ctx, path, incremental, forceClean)
 	if err != nil {
 		return &CallToolResult{
 			Content: []Content{{

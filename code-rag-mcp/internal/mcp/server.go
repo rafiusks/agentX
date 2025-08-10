@@ -129,6 +129,11 @@ func initializeTools() []Tool {
 						Description: "Only index changed files",
 						Default:     true,
 					},
+					"force_clean": {
+						Type:        "boolean",
+						Description: "Force a complete cleanup and rebuild of the index",
+						Default:     false,
+					},
 				},
 				Required: []string{"path"},
 			},

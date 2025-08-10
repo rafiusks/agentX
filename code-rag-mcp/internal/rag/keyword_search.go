@@ -2,7 +2,9 @@ package rag
 
 import (
 	"fmt"
+	"os"
 	"regexp"
+	"strings"
 	"sync"
 
 	"github.com/blevesearch/bleve/v2"
@@ -71,11 +73,12 @@ func createCodeMapping() *mapping.IndexMappingImpl {
 	// Create document mapping
 	docMapping := bleve.NewDocumentMapping()
 	
-	// Content field - searchable text
+	// Content field - searchable text (base weight)
 	contentField := bleve.NewTextFieldMapping()
 	contentField.Analyzer = "standard"
 	contentField.Store = true
 	contentField.IncludeInAll = true
+	contentField.IncludeTermVectors = true
 	docMapping.AddFieldMappingsAt("content", contentField)
 	
 	// FilePath field - keyword field for exact matching
@@ -94,19 +97,35 @@ func createCodeMapping() *mapping.IndexMappingImpl {
 	typeField.Store = true
 	docMapping.AddFieldMappingsAt("type", typeField)
 	
-	// Name field - boosted for exact matches
+	// Name field - highly boosted for exact matches
 	nameField := bleve.NewTextFieldMapping()
-	nameField.Analyzer = "standard"
+	nameField.Analyzer = "keyword" // Use keyword analyzer for exact matching
 	nameField.Store = true
 	nameField.IncludeInAll = true
+	nameField.IncludeTermVectors = true
 	docMapping.AddFieldMappingsAt("name", nameField)
 	
-	// Symbols field - extracted identifiers
+	// Name_text field - for partial matches
+	nameTextField := bleve.NewTextFieldMapping()
+	nameTextField.Analyzer = "standard"
+	nameTextField.Store = false
+	nameTextField.IncludeInAll = true
+	docMapping.AddFieldMappingsAt("name_text", nameTextField)
+	
+	// Symbols field - extracted identifiers (boosted)
 	symbolsField := bleve.NewTextFieldMapping()
 	symbolsField.Analyzer = "standard"
 	symbolsField.Store = false
 	symbolsField.IncludeInAll = true
+	symbolsField.IncludeTermVectors = true
 	docMapping.AddFieldMappingsAt("symbols", symbolsField)
+	
+	// Signatures field - function signatures
+	signaturesField := bleve.NewTextFieldMapping()
+	signaturesField.Analyzer = "standard"
+	signaturesField.Store = true
+	signaturesField.IncludeInAll = true
+	docMapping.AddFieldMappingsAt("signatures", signaturesField)
 	
 	// Numeric fields
 	numericField := bleve.NewNumericFieldMapping()
@@ -127,23 +146,33 @@ func (bs *BleveSearcher) IndexChunk(chunk Chunk) error {
 	bs.mu.Lock()
 	defer bs.mu.Unlock()
 	
-	// Extract symbols from code
-	symbols := extractSymbols(chunk.Code, chunk.Language)
-	
-	doc := CodeDocument{
-		ID:         generateChunkID(chunk),
-		Content:    chunk.Code,
-		FilePath:   chunk.FilePath,
-		Language:   chunk.Language,
-		Type:       chunk.Type,
-		Name:       chunk.Name,
-		Symbols:    symbols,
-		LineStart:  chunk.LineStart,
-		LineEnd:    chunk.LineEnd,
-		Repository: chunk.Repository,
+	// Use symbols from chunk if available, otherwise extract
+	symbols := chunk.Symbols
+	if len(symbols) == 0 {
+		symbols = extractSymbols(chunk.Code, chunk.Language)
 	}
 	
-	return bs.index.Index(doc.ID, doc)
+	// Create document with all fields
+	doc := map[string]interface{}{
+		"id":            generateChunkID(chunk),
+		"content":       chunk.Code,
+		"filepath":      chunk.FilePath,
+		"language":      chunk.Language,
+		"type":          chunk.Type,
+		"name":          chunk.Name,
+		"name_text":     chunk.Name, // For partial matching
+		"symbols":       strings.Join(symbols, " "),
+		"signatures":    chunk.Signatures,
+		"line_start":    chunk.LineStart,
+		"line_end":      chunk.LineEnd,
+		"repository":    chunk.Repository,
+		"file_context":  chunk.FileContext,
+		"parent_context": chunk.ParentContext,
+		// Combine all searchable text for better matching
+		"full_context": chunk.FileContext + "\n" + chunk.ParentContext + "\n" + chunk.Code,
+	}
+	
+	return bs.index.Index(doc["id"].(string), doc)
 }
 
 // DeleteFile removes all chunks for a file from the index
@@ -179,39 +208,51 @@ func (bs *BleveSearcher) Search(queryStr string, collection string, limit int) (
 	bs.mu.RLock()
 	defer bs.mu.RUnlock()
 	
-	// Build multi-field query
+	// Build multi-field query with enhanced boosting
 	boolQuery := bleve.NewBooleanQuery()
 	
-	// Exact phrase match (highest boost)
-	phraseQuery := bleve.NewMatchPhraseQuery(queryStr)
-	phraseQuery.SetField("content")
-	phraseQuery.SetBoost(3.0)
-	boolQuery.AddShould(phraseQuery)
+	// Exact name match (highest boost for function/class names)
+	exactNameQuery := bleve.NewTermQuery(queryStr)
+	exactNameQuery.SetField("name")
+	exactNameQuery.SetBoost(5.0)
+	boolQuery.AddShould(exactNameQuery)
 	
-	// Name field match (high boost for function/class names)
+	// Partial name match
 	nameQuery := bleve.NewMatchQuery(queryStr)
-	nameQuery.SetField("name")
-	nameQuery.SetBoost(2.5)
+	nameQuery.SetField("name_text")
+	nameQuery.SetBoost(3.0)
 	boolQuery.AddShould(nameQuery)
 	
-	// Fuzzy match for typos
-	fuzzyQuery := bleve.NewFuzzyQuery(queryStr)
-	fuzzyQuery.SetField("content")
-	fuzzyQuery.SetFuzziness(2)
-	fuzzyQuery.SetBoost(1.5)
-	boolQuery.AddShould(fuzzyQuery)
+	// Symbol match (high boost for identifiers)
+	symbolQuery := bleve.NewMatchQuery(queryStr)
+	symbolQuery.SetField("symbols")
+	symbolQuery.SetBoost(2.5)
+	boolQuery.AddShould(symbolQuery)
 	
-	// Regular match query
+	// Signature match (for finding specific function signatures)
+	signatureQuery := bleve.NewMatchQuery(queryStr)
+	signatureQuery.SetField("signatures")
+	signatureQuery.SetBoost(2.0)
+	boolQuery.AddShould(signatureQuery)
+	
+	// Exact phrase match in content
+	phraseQuery := bleve.NewMatchPhraseQuery(queryStr)
+	phraseQuery.SetField("content")
+	phraseQuery.SetBoost(1.8)
+	boolQuery.AddShould(phraseQuery)
+	
+	// Regular match query in content
 	matchQuery := bleve.NewMatchQuery(queryStr)
 	matchQuery.SetField("content")
 	matchQuery.SetBoost(1.0)
 	boolQuery.AddShould(matchQuery)
 	
-	// Symbol match
-	symbolQuery := bleve.NewMatchQuery(queryStr)
-	symbolQuery.SetField("symbols")
-	symbolQuery.SetBoost(1.2)
-	boolQuery.AddShould(symbolQuery)
+	// Fuzzy match for typos (lower boost)
+	fuzzyQuery := bleve.NewFuzzyQuery(queryStr)
+	fuzzyQuery.SetField("content")
+	fuzzyQuery.SetFuzziness(2)
+	fuzzyQuery.SetBoost(0.5)
+	boolQuery.AddShould(fuzzyQuery)
 	
 	// Create search request
 	searchRequest := bleve.NewSearchRequest(boolQuery)
@@ -334,6 +375,32 @@ func (bs *BleveSearcher) DeleteChunk(chunkID string) error {
 	defer bs.mu.Unlock()
 	
 	return bs.index.Delete(chunkID)
+}
+
+// ClearIndex removes all documents from the index
+func (bs *BleveSearcher) ClearIndex() error {
+	bs.mu.Lock()
+	defer bs.mu.Unlock()
+	
+	// Close the current index
+	if bs.index != nil {
+		bs.index.Close()
+	}
+	
+	// Delete the index directory
+	if err := os.RemoveAll(bs.indexPath); err != nil {
+		return fmt.Errorf("failed to remove index directory: %w", err)
+	}
+	
+	// Recreate the index
+	mapping := createCodeMapping()
+	index, err := bleve.New(bs.indexPath, mapping)
+	if err != nil {
+		return fmt.Errorf("failed to recreate index: %w", err)
+	}
+	
+	bs.index = index
+	return nil
 }
 
 // Close closes the index

@@ -124,10 +124,232 @@ func (hs *HybridSearcher) keywordSearch(query string, collection string, limit i
 	return results, nil
 }
 
+// HybridSearchWithIntent performs hybrid search with intent-based optimization
+func (hs *HybridSearcher) HybridSearchWithIntent(ctx context.Context, query string, collection string, limit int, intent QueryIntent) ([]SearchResult, error) {
+	// Default weights
+	semanticWeight := float32(0.5)
+	keywordWeight := float32(0.5)
+	
+	switch intent.SearchType {
+	case "definition":
+		// For definitions, keyword search is more important
+		keywordWeight = 0.7
+		semanticWeight = 0.3
+	case "usage", "example":
+		// For usage examples, semantic search is better
+		semanticWeight = 0.7
+		keywordWeight = 0.3
+	case "implementation":
+		// Balanced for implementations
+		semanticWeight = 0.5
+		keywordWeight = 0.5
+	}
+	
+	// Expand query based on intent
+	expandedQuery := hs.expandQuery(query)
+	if intent.SearchType == "definition" {
+		// For definitions, also search for the exact term
+		expandedQuery = query + " " + expandedQuery
+	}
+	
+	// Perform semantic search
+	semanticResults, err := hs.semanticSearch(ctx, expandedQuery, collection, limit*2)
+	if err != nil {
+		// Log but continue with keyword search
+		semanticResults = []SearchResult{}
+	}
+	
+	// Perform keyword search with intent-based boosting
+	keywordResults, err := hs.keywordSearchWithIntent(expandedQuery, collection, limit*2, intent)
+	if err != nil {
+		// Log but continue
+		keywordResults = []SearchResult{}
+	}
+	
+	// Combine and re-rank results
+	combined := hs.combineResults(semanticResults, keywordResults, semanticWeight, keywordWeight)
+	
+	// Apply intent-based filtering
+	if intent.SearchType == "definition" {
+		// Prioritize results with matching names
+		combined = hs.prioritizeByName(combined, query)
+	}
+	
+	// Limit results
+	if len(combined) > limit {
+		combined = combined[:limit]
+	}
+	
+	return combined, nil
+}
+
+// keywordSearchWithIntent performs keyword search with intent-based boosting
+func (hs *HybridSearcher) keywordSearchWithIntent(query string, collection string, limit int, intent QueryIntent) ([]SearchResult, error) {
+	if hs.engine.bleveSearcher == nil {
+		return []SearchResult{}, nil
+	}
+	
+	// Modify search based on intent
+	searchQuery := query
+	if intent.SearchType == "definition" {
+		// For definitions, search for exact matches
+		searchQuery = "name:" + query + " OR " + query
+	}
+	
+	results, err := hs.engine.bleveSearcher.Search(searchQuery, collection, limit)
+	if err != nil {
+		return []SearchResult{}, err
+	}
+	
+	return results, nil
+}
+
+// combineResults merges semantic and keyword search results with weighted scoring
+func (hs *HybridSearcher) combineResults(semanticResults, keywordResults []SearchResult, semanticWeight, keywordWeight float32) []SearchResult {
+	// Create map to track combined scores
+	scoreMap := make(map[string]*SearchResult)
+	
+	// Add semantic results
+	for _, result := range semanticResults {
+		key := result.FilePath + ":" + fmt.Sprintf("%d", result.LineStart)
+		if existing, ok := scoreMap[key]; ok {
+			existing.Score = existing.Score + result.Score*semanticWeight
+		} else {
+			r := result
+			r.Score = result.Score * semanticWeight
+			scoreMap[key] = &r
+		}
+	}
+	
+	// Add keyword results
+	for _, result := range keywordResults {
+		key := result.FilePath + ":" + fmt.Sprintf("%d", result.LineStart)
+		if existing, ok := scoreMap[key]; ok {
+			existing.Score = existing.Score + result.Score*keywordWeight
+		} else {
+			r := result
+			r.Score = result.Score * keywordWeight
+			scoreMap[key] = &r
+		}
+	}
+	
+	// Convert map to slice
+	var combined []SearchResult
+	for _, result := range scoreMap {
+		combined = append(combined, *result)
+	}
+	
+	// Sort by score
+	sort.Slice(combined, func(i, j int) bool {
+		return combined[i].Score > combined[j].Score
+	})
+	
+	return combined
+}
+
+// prioritizeByName moves results with matching names to the top
+func (hs *HybridSearcher) prioritizeByName(results []SearchResult, query string) []SearchResult {
+	queryLower := strings.ToLower(query)
+	
+	// Separate exact matches and others
+	var exactMatches []SearchResult
+	var otherResults []SearchResult
+	
+	for _, result := range results {
+		if strings.ToLower(result.Name) == queryLower {
+			exactMatches = append(exactMatches, result)
+		} else {
+			otherResults = append(otherResults, result)
+		}
+	}
+	
+	// Combine with exact matches first
+	return append(exactMatches, otherResults...)
+}
+
+// expandIdentifierPatterns expands camelCase, PascalCase, snake_case, and kebab-case patterns
+func expandIdentifierPatterns(query string) string {
+	result := query
+	words := strings.Fields(query)
+	
+	for _, word := range words {
+		// Handle camelCase and PascalCase
+		camelParts := splitCamelCase(word)
+		if len(camelParts) > 1 {
+			// Add individual parts and snake_case version
+			result += " " + strings.Join(camelParts, " ")
+			result += " " + strings.ToLower(strings.Join(camelParts, "_"))
+		}
+		
+		// Handle snake_case
+		if strings.Contains(word, "_") {
+			parts := strings.Split(word, "_")
+			result += " " + strings.Join(parts, " ")
+			// Add camelCase version
+			camelVersion := ""
+			for i, part := range parts {
+				if i == 0 {
+					camelVersion += strings.ToLower(part)
+				} else {
+					camelVersion += strings.Title(strings.ToLower(part))
+				}
+			}
+			result += " " + camelVersion
+		}
+		
+		// Handle kebab-case
+		if strings.Contains(word, "-") {
+			parts := strings.Split(word, "-")
+			result += " " + strings.Join(parts, " ")
+			result += " " + strings.Join(parts, "_")
+		}
+		
+		// Handle dot notation (e.g., Client.Connect)
+		if strings.Contains(word, ".") {
+			parts := strings.Split(word, ".")
+			result += " " + strings.Join(parts, " ")
+		}
+	}
+	
+	return result
+}
+
+// splitCamelCase splits a camelCase or PascalCase string into parts
+func splitCamelCase(s string) []string {
+	var parts []string
+	var current []rune
+	
+	for i, r := range s {
+		if i > 0 && unicode.IsUpper(r) {
+			// Check if next char is lowercase (new word boundary)
+			if i+1 < len(s) {
+				nextRune := rune(s[i+1])
+				if unicode.IsLower(nextRune) || (len(current) > 0 && unicode.IsLower(current[len(current)-1])) {
+					if len(current) > 0 {
+						parts = append(parts, string(current))
+						current = []rune{}
+					}
+				}
+			} else if len(current) > 0 {
+				parts = append(parts, string(current))
+				current = []rune{}
+			}
+		}
+		current = append(current, r)
+	}
+	
+	if len(current) > 0 {
+		parts = append(parts, string(current))
+	}
+	
+	return parts
+}
+
 // expandQuery expands the query with synonyms and related terms
 func (hs *HybridSearcher) expandQuery(query string) string {
-	expanded := query
-	lower := strings.ToLower(query)
+	// First, expand camelCase and snake_case patterns
+	expanded := expandIdentifierPatterns(query)
+	lower := strings.ToLower(expanded)
 	
 	// Comprehensive synonym groups for better semantic matching
 	synonymGroups := [][]string{

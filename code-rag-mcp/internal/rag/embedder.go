@@ -29,7 +29,10 @@ func NewEmbedder(config *EmbeddingConfig) (*Embedder, error) {
 	case "openai":
 		provider = NewOpenAIProvider(config)
 	case "local":
-		provider = NewLocalProvider(config)
+		// Use the improved MiniLM provider for better embeddings
+		provider = NewMiniLMProvider(config)
+	case "minilm":
+		provider = NewMiniLMProvider(config)
 	default:
 		// Default to service provider
 		provider = NewServiceEmbeddingProvider(config)

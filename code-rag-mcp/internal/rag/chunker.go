@@ -24,6 +24,14 @@ type Chunk struct {
 	Type       string // "function", "class", "method", "module"
 	Name       string
 	Repository string
+	// Enhanced symbol extraction
+	Symbols    []string // Extracted function/class/variable names
+	Imports    []string // Import statements
+	Signatures string   // Function/method signatures
+	// Hierarchical context
+	FileContext   string // Package declaration and imports
+	ParentContext string // Parent class/struct for methods
+	SiblingContext string // Related methods in same class
 }
 
 func NewChunker(config *ChunkingConfig) *Chunker {
@@ -61,6 +69,9 @@ func (c *Chunker) chunkGoFile(filePath string) ([]Chunk, error) {
 	
 	var chunks []Chunk
 	
+	// Extract file-level context (package and imports)
+	fileContext := extractGoFileContext(node, fset, filePath)
+	
 	// Extract package-level documentation
 	if node.Doc != nil {
 		chunks = append(chunks, Chunk{
@@ -92,14 +103,28 @@ func (c *Chunker) chunkGoFile(filePath string) ([]Chunk, error) {
 				chunkType = "method"
 			}
 			
+			// Extract symbols and signature
+			symbols := extractGoSymbols(x)
+			signature := extractGoSignature(x)
+			
+			// Extract parent context for methods
+			parentContext := ""
+			if x.Recv != nil {
+				parentContext = extractMethodParentContext(x, node, fset, filePath)
+			}
+			
 			chunks = append(chunks, Chunk{
-				Code:      code,
-				Language:  "go",
-				FilePath:  filePath,
-				LineStart: start.Line,
-				LineEnd:   end.Line,
-				Type:      chunkType,
-				Name:      x.Name.Name,
+				Code:          code,
+				Language:      "go",
+				FilePath:      filePath,
+				LineStart:     start.Line,
+				LineEnd:       end.Line,
+				Type:          chunkType,
+				Name:          x.Name.Name,
+				Symbols:       symbols,
+				Signatures:    signature,
+				FileContext:   fileContext,
+				ParentContext: parentContext,
 			})
 			
 		case *ast.GenDecl:
@@ -293,4 +318,158 @@ func (c *Chunker) isSupported(language string) bool {
 		}
 	}
 	return false
+}
+
+// extractGoSymbols extracts symbols from a Go function declaration
+func extractGoSymbols(fn *ast.FuncDecl) []string {
+	symbols := []string{fn.Name.Name}
+	
+	// Add receiver type if it's a method
+	if fn.Recv != nil && len(fn.Recv.List) > 0 {
+		for _, field := range fn.Recv.List {
+			if starExpr, ok := field.Type.(*ast.StarExpr); ok {
+				if ident, ok := starExpr.X.(*ast.Ident); ok {
+					symbols = append(symbols, ident.Name)
+				}
+			} else if ident, ok := field.Type.(*ast.Ident); ok {
+				symbols = append(symbols, ident.Name)
+			}
+		}
+	}
+	
+	// Add parameter types
+	if fn.Type.Params != nil {
+		for _, field := range fn.Type.Params.List {
+			for _, name := range field.Names {
+				symbols = append(symbols, name.Name)
+			}
+		}
+	}
+	
+	return symbols
+}
+
+// extractGoSignature extracts the function signature
+func extractGoSignature(fn *ast.FuncDecl) string {
+	signature := fn.Name.Name + "("
+	
+	// Add parameters
+	if fn.Type.Params != nil && len(fn.Type.Params.List) > 0 {
+		params := []string{}
+		for _, field := range fn.Type.Params.List {
+			paramType := extractTypeString(field.Type)
+			if len(field.Names) > 0 {
+				for _, name := range field.Names {
+					params = append(params, name.Name+" "+paramType)
+				}
+			} else {
+				params = append(params, paramType)
+			}
+		}
+		signature += strings.Join(params, ", ")
+	}
+	signature += ")"
+	
+	// Add return types
+	if fn.Type.Results != nil && len(fn.Type.Results.List) > 0 {
+		results := []string{}
+		for _, field := range fn.Type.Results.List {
+			results = append(results, extractTypeString(field.Type))
+		}
+		if len(results) == 1 {
+			signature += " " + results[0]
+		} else {
+			signature += " (" + strings.Join(results, ", ") + ")"
+		}
+	}
+	
+	return signature
+}
+
+// extractTypeString extracts type as string from AST
+func extractTypeString(expr ast.Expr) string {
+	switch t := expr.(type) {
+	case *ast.Ident:
+		return t.Name
+	case *ast.StarExpr:
+		return "*" + extractTypeString(t.X)
+	case *ast.ArrayType:
+		return "[]" + extractTypeString(t.Elt)
+	case *ast.MapType:
+		return "map[" + extractTypeString(t.Key) + "]" + extractTypeString(t.Value)
+	case *ast.SelectorExpr:
+		return extractTypeString(t.X) + "." + t.Sel.Name
+	case *ast.InterfaceType:
+		return "interface{}"
+	default:
+		return "interface{}"
+	}
+}
+
+// extractGoFileContext extracts package declaration and imports
+func extractGoFileContext(node *ast.File, fset *token.FileSet, filePath string) string {
+	context := "package " + node.Name.Name + "\n\n"
+	
+	// Add imports
+	if len(node.Imports) > 0 {
+		context += "// Imports:\n"
+		for _, imp := range node.Imports {
+			if imp.Name != nil {
+				context += imp.Name.Name + " "
+			}
+			context += strings.Trim(imp.Path.Value, "\"") + "\n"
+		}
+	}
+	
+	return context
+}
+
+// extractMethodParentContext extracts the parent type definition for a method
+func extractMethodParentContext(method *ast.FuncDecl, file *ast.File, fset *token.FileSet, filePath string) string {
+	if method.Recv == nil || len(method.Recv.List) == 0 {
+		return ""
+	}
+	
+	// Get receiver type name
+	receiverType := ""
+	field := method.Recv.List[0]
+	switch t := field.Type.(type) {
+	case *ast.Ident:
+		receiverType = t.Name
+	case *ast.StarExpr:
+		if ident, ok := t.X.(*ast.Ident); ok {
+			receiverType = ident.Name
+		}
+	}
+	
+	if receiverType == "" {
+		return ""
+	}
+	
+	// Find the type declaration
+	context := ""
+	ast.Inspect(file, func(n ast.Node) bool {
+		if genDecl, ok := n.(*ast.GenDecl); ok && genDecl.Tok == token.TYPE {
+			for _, spec := range genDecl.Specs {
+				if typeSpec, ok := spec.(*ast.TypeSpec); ok && typeSpec.Name.Name == receiverType {
+					context = fmt.Sprintf("// Type: %s\n", receiverType)
+					
+					// Add type definition summary
+					switch typeSpec.Type.(type) {
+					case *ast.StructType:
+						context += fmt.Sprintf("%s is a struct", receiverType)
+						// Could extract field names here if needed
+					case *ast.InterfaceType:
+						context += fmt.Sprintf("%s is an interface", receiverType)
+					default:
+						context += fmt.Sprintf("%s is a type alias", receiverType)
+					}
+					return false
+				}
+			}
+		}
+		return true
+	})
+	
+	return context
 }
