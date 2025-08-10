@@ -41,9 +41,10 @@ type ToolInvocation struct {
 
 // ToolResult represents the result of a tool invocation
 type ToolResult struct {
-	Success bool        `json:"success"`
-	Result  interface{} `json:"result,omitempty"`
-	Error   string      `json:"error,omitempty"`
+	Success  bool        `json:"success"`
+	Result   interface{} `json:"result,omitempty"`
+	Error    string      `json:"error,omitempty"`
+	Metadata interface{} `json:"metadata,omitempty"` // Additional metadata for UI
 }
 
 // DetectToolInvocation detects if a message contains a tool invocation request
@@ -63,9 +64,17 @@ func (m *MCPToolIntegration) DetectToolInvocation(message string) (*ToolInvocati
 	// Pattern 2: Natural language detection for web search
 	if m.shouldUseWebSearch(message) {
 		query := m.extractSearchQuery(message)
+		// Determine if we should fetch full content based on the query
+		includeContent := m.shouldFetchFullContent(message)
+		maxResults := 5
+		if includeContent {
+			maxResults = 3 // Reduce number when fetching full content
+		}
+		
 		args, _ := json.Marshal(map[string]interface{}{
-			"query":      query,
-			"maxResults": 5,
+			"query":         query,
+			"maxResults":    maxResults,
+			"includeContent": includeContent,
 		})
 		return &ToolInvocation{
 			Type:      "builtin",
@@ -90,6 +99,55 @@ func (m *MCPToolIntegration) DetectToolInvocation(message string) (*ToolInvocati
 	}
 	
 	return nil, nil
+}
+
+// shouldFetchFullContent determines if we should fetch full page content
+func (m *MCPToolIntegration) shouldFetchFullContent(message string) bool {
+	message = strings.ToLower(message)
+	
+	// Keywords that indicate need for detailed information
+	detailKeywords := []string{
+		"explain",
+		"describe",
+		"tell me about",
+		"what is",
+		"how does",
+		"how to",
+		"details about",
+		"information about",
+		"deep dive",
+		"comprehensive",
+		"full",
+		"complete",
+		"documentation",
+		"tutorial",
+		"guide",
+		"research",
+		"analyze",
+		"understand",
+	}
+	
+	for _, keyword := range detailKeywords {
+		if strings.Contains(message, keyword) {
+			return true
+		}
+	}
+	
+	// If asking about specific technical topics, fetch full content
+	technicalTopics := []string{
+		"api", "sdk", "implementation", "architecture", 
+		"algorithm", "code", "programming", "technical",
+		"specification", "configuration", "setup",
+	}
+	
+	for _, topic := range technicalTopics {
+		if strings.Contains(message, topic) {
+			return true
+		}
+	}
+	
+	// Default to just snippets for simple queries
+	return false
 }
 
 // shouldUseWebSearch determines if a message should trigger web search
@@ -119,6 +177,13 @@ func (m *MCPToolIntegration) shouldUseWebSearch(message string) bool {
 		"was released",
 		"is claude",
 		"is gpt",
+		"how is",
+		"what happened",
+		"any updates",
+		"what's happening with",
+		"status of",
+		"explain",
+		"describe",
 	}
 	
 	for _, keyword := range searchKeywords {
@@ -138,7 +203,7 @@ func (m *MCPToolIntegration) shouldUseWebSearch(message string) bool {
 	}
 	
 	// Topics that likely need current information
-	techTopics := []string{"gpt-5", "gpt5", "claude", "gemini", "llama", "ai model", "openai", "anthropic", "google ai", "opus", "sonnet", "haiku"}
+	techTopics := []string{"gpt-5", "gpt5", "claude", "gemini", "llama", "ai model", "openai", "anthropic", "google ai", "opus", "sonnet", "haiku", "mistral", "qwen", "deepseek", "kimi", "moonshot"}
 	for _, topic := range techTopics {
 		if strings.Contains(message, topic) {
 			return true
@@ -151,6 +216,22 @@ func (m *MCPToolIntegration) shouldUseWebSearch(message string) bool {
 	}
 	if strings.Contains(message, "gpt") && regexp.MustCompile(`\d`).MatchString(message) {
 		return true
+	}
+	
+	// Always search for anything mentioning specific years (likely needs current info)
+	yearPattern := regexp.MustCompile(`20\d{2}`)
+	if yearPattern.MatchString(message) {
+		return true
+	}
+	
+	// Search for questions (?) about entities that change frequently
+	if strings.Contains(message, "?") {
+		volatileTopics := []string{"price", "stock", "weather", "president", "champion", "winner", "release", "launch", "announce"}
+		for _, topic := range volatileTopics {
+			if strings.Contains(message, topic) {
+				return true
+			}
+		}
 	}
 	
 	return false
@@ -225,9 +306,16 @@ func (m *MCPToolIntegration) InvokeToolForUser(ctx context.Context, userID uuid.
 			}, nil
 		}
 		
+		// Extract metadata from result if it's a web search
+		var metadata interface{}
+		if invocation.ToolName == "web_search" {
+			metadata = m.extractSearchMetadata(result)
+		}
+		
 		return &ToolResult{
-			Success: true,
-			Result:  result,
+			Success:  true,
+			Result:   result,
+			Metadata: metadata,
 		}, nil
 	}
 	
@@ -293,23 +381,30 @@ func (m *MCPToolIntegration) formatWebSearchResult(result interface{}) string {
 		return text
 	}
 	
-	// Format results nicely
+	// Format results as reference material with clear sources
 	var formatted strings.Builder
-	formatted.WriteString("🔍 **Search Results:**\n\n")
+	formatted.WriteString("Based on current web information:\n\n")
 	
-	for i, r := range results {
+	for _, r := range results {
 		result, ok := r.(map[string]interface{})
 		if !ok {
 			continue
 		}
 		
-		title := result["title"].(string)
-		url := result["url"].(string)
-		snippet := result["snippet"].(string)
+		title, _ := result["title"].(string)
+		url, _ := result["url"].(string)
+		snippet, _ := result["snippet"].(string)
 		
-		formatted.WriteString(fmt.Sprintf("%d. **%s**\n", i+1, title))
-		formatted.WriteString(fmt.Sprintf("   %s\n", snippet))
-		formatted.WriteString(fmt.Sprintf("   [Link](%s)\n\n", url))
+		// Extract domain from URL for source display
+		domain := url
+		if strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://") {
+			if parts := strings.Split(strings.TrimPrefix(strings.TrimPrefix(url, "https://"), "http://"), "/"); len(parts) > 0 {
+				domain = parts[0]
+			}
+		}
+		
+		// Format with clear source attribution that LLM should preserve
+		formatted.WriteString(fmt.Sprintf("• According to %s: %s\n", domain, snippet))
 	}
 	
 	// Add metadata if available
@@ -350,6 +445,56 @@ func (m *MCPToolIntegration) formatFetchPageResult(result interface{}) string {
 	}
 	
 	return fmt.Sprintf("Page fetched: %v", result)
+}
+
+// extractSearchMetadata extracts structured metadata from search results
+func (m *MCPToolIntegration) extractSearchMetadata(result interface{}) map[string]interface{} {
+	resultMap, ok := result.(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	
+	content, ok := resultMap["content"].([]interface{})
+	if !ok || len(content) == 0 {
+		return nil
+	}
+	
+	firstContent, ok := content[0].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	
+	text, ok := firstContent["text"].(string)
+	if !ok {
+		return nil
+	}
+	
+	// Parse the JSON text
+	var searchData map[string]interface{}
+	if err := json.Unmarshal([]byte(text), &searchData); err != nil {
+		return nil
+	}
+	
+	results, ok := searchData["results"].([]interface{})
+	if !ok {
+		return nil
+	}
+	
+	// Build structured metadata
+	metadata := map[string]interface{}{
+		"type":        "web_search",
+		"provider":    "DuckDuckGo",
+		"resultCount": len(results),
+		"results":     results,
+	}
+	
+	if meta, ok := searchData["metadata"].(map[string]interface{}); ok {
+		if provider, ok := meta["provider"].(string); ok {
+			metadata["provider"] = provider
+		}
+	}
+	
+	return metadata
 }
 
 // formatSummarizeResult formats summarized content for chat

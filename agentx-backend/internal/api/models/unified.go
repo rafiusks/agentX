@@ -28,6 +28,9 @@ type UnifiedChatRequest struct {
 	Tools     []providers.Tool     `json:"tools,omitempty"`
 	Images    []Image              `json:"images,omitempty"`
 	Audio     *Audio               `json:"audio,omitempty"`
+	
+	// Force web search for this request
+	ForceWebSearch bool `json:"force_web_search,omitempty"`
 }
 
 // Preferences for routing decisions

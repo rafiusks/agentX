@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -12,6 +13,14 @@ import (
 	"github.com/agentx/agentx-backend/internal/providers"
 	"github.com/agentx/agentx-backend/internal/repository"
 )
+
+// min returns the minimum of two integers
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
 
 // OrchestrationService is the central coordinator for all system operations
 // It acts as the single entry point for all clients (API, CLI, workers, etc.)
@@ -80,12 +89,33 @@ func (o *OrchestrationService) ChatWithUser(ctx context.Context, userID uuid.UUI
 		}
 	}
 	
-	// Check if the user's message contains a tool invocation
+	// Check if the user's message contains a tool invocation or force web search is enabled
 	if len(req.Messages) > 0 && o.mcpTools != nil {
 		lastMessage := req.Messages[len(req.Messages)-1]
 		if lastMessage.Role == "user" {
-			// Detect tool invocation
-			invocation, err := o.mcpTools.DetectToolInvocation(lastMessage.Content)
+			var invocation *ToolInvocation
+			var err error
+			
+			// Force web search if flag is set
+			if req.ForceWebSearch {
+				// Create a web search invocation for the user's message
+				// Enable includeContent to fetch actual page content, not just snippets
+				args, _ := json.Marshal(map[string]interface{}{
+					"query":         lastMessage.Content,
+					"maxResults":    3, // Reduced to 3 to avoid too much content
+					"includeContent": true, // Fetch actual page content
+				})
+				invocation = &ToolInvocation{
+					Type:      "builtin",
+					ServerID:  "builtin-websearch",
+					ToolName:  "web_search",
+					Arguments: args,
+				}
+			} else {
+				// Detect tool invocation normally
+				invocation, err = o.mcpTools.DetectToolInvocation(lastMessage.Content)
+			}
+			
 			if err == nil && invocation != nil {
 				// Invoke the tool
 				toolResult, err := o.mcpTools.InvokeToolForUser(ctx, userID, invocation)
@@ -93,18 +123,23 @@ func (o *OrchestrationService) ChatWithUser(ctx context.Context, userID uuid.UUI
 					// Format the result for chat
 					formattedResult := o.mcpTools.FormatToolResultForChat(toolResult, invocation.ToolName)
 					
-					// Add tool result to context
-					req.Messages = append(req.Messages, providers.Message{
-						Role:    "assistant",
-						Content: formattedResult,
-					})
-					
-					// If web search, also ask LLM to provide additional context
-					if invocation.ToolName == "web_search" {
+					// For web search, prepend results to the last user message instead of adding as separate message
+					if invocation.ToolName == "web_search" && len(req.Messages) > 0 {
+						// Find the last user message and prepend search context
+						for i := len(req.Messages) - 1; i >= 0; i-- {
+							if req.Messages[i].Role == "user" {
+								// Prepend search results to user's question
+								req.Messages[i].Content = formattedResult + "\n\n" + req.Messages[i].Content
+								break
+							}
+						}
+					} else {
+						// For other tools, add as assistant message
 						req.Messages = append(req.Messages, providers.Message{
-							Role:    "user",
-							Content: "Based on these search results, please provide a comprehensive answer to my original question.",
+							Role:    "assistant",
+							Content: formattedResult,
 						})
+					}
 					}
 				}
 			}
@@ -153,12 +188,33 @@ func (o *OrchestrationService) StreamChatWithUser(ctx context.Context, userID uu
 		}
 	}
 	
-	// Check if the user's message contains a tool invocation
+	// Check if the user's message contains a tool invocation or force web search is enabled
 	if len(req.Messages) > 0 && o.mcpTools != nil {
 		lastMessage := req.Messages[len(req.Messages)-1]
 		if lastMessage.Role == "user" {
-			// Detect tool invocation
-			invocation, err := o.mcpTools.DetectToolInvocation(lastMessage.Content)
+			var invocation *ToolInvocation
+			var err error
+			
+			// Force web search if flag is set
+			if req.ForceWebSearch {
+				// Create a web search invocation for the user's message
+				// Enable includeContent to fetch actual page content, not just snippets
+				args, _ := json.Marshal(map[string]interface{}{
+					"query":         lastMessage.Content,
+					"maxResults":    3, // Reduced to 3 to avoid too much content
+					"includeContent": true, // Fetch actual page content
+				})
+				invocation = &ToolInvocation{
+					Type:      "builtin",
+					ServerID:  "builtin-websearch",
+					ToolName:  "web_search",
+					Arguments: args,
+				}
+			} else {
+				// Detect tool invocation normally
+				invocation, err = o.mcpTools.DetectToolInvocation(lastMessage.Content)
+			}
+			
 			if err == nil && invocation != nil {
 				// Invoke the tool
 				toolResult, err := o.mcpTools.InvokeToolForUser(ctx, userID, invocation)
@@ -166,18 +222,23 @@ func (o *OrchestrationService) StreamChatWithUser(ctx context.Context, userID uu
 					// Format the result for chat
 					formattedResult := o.mcpTools.FormatToolResultForChat(toolResult, invocation.ToolName)
 					
-					// Add tool result to context
-					req.Messages = append(req.Messages, providers.Message{
-						Role:    "assistant",
-						Content: formattedResult,
-					})
-					
-					// If web search, also ask LLM to provide additional context
-					if invocation.ToolName == "web_search" {
+					// For web search, prepend results to the last user message instead of adding as separate message
+					if invocation.ToolName == "web_search" && len(req.Messages) > 0 {
+						// Find the last user message and prepend search context
+						for i := len(req.Messages) - 1; i >= 0; i-- {
+							if req.Messages[i].Role == "user" {
+								// Prepend search results to user's question
+								req.Messages[i].Content = formattedResult + "\n\n" + req.Messages[i].Content
+								break
+							}
+						}
+					} else {
+						// For other tools, add as assistant message
 						req.Messages = append(req.Messages, providers.Message{
-							Role:    "user",
-							Content: "Based on these search results, please provide a comprehensive answer to my original question.",
+							Role:    "assistant",
+							Content: formattedResult,
 						})
+					}
 					}
 				}
 			}

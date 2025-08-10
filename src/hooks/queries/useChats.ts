@@ -252,7 +252,7 @@ export const useSendStreamingMessage = () => {
   const queryClient = useQueryClient();
   const { startStreaming, appendToStream, finishStreaming, setAbortController, setStreamError, setContextUsage } = useStreamingStore();
   const { config: userContextConfig } = useContextStore();
-  const { getSystemPrompt, maxResponseTokens } = usePreferencesStore();
+  const { getSystemPrompt, maxResponseTokens, forceWebSearch } = usePreferencesStore();
   
   // Track timeout for stuck streams and abort controller
   let streamTimeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -451,6 +451,11 @@ export const useSendStreamingMessage = () => {
       // Add max tokens if set
       if (maxResponseTokens) {
         requestBody.max_tokens = maxResponseTokens;
+      }
+      
+      // Add force web search flag if enabled
+      if (forceWebSearch) {
+        requestBody.force_web_search = true;
       }
       
       // Wrap streaming call with retry logic for rate limits

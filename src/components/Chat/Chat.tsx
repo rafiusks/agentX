@@ -18,6 +18,7 @@ import { AccessibilityAnnouncer } from './AccessibilityAnnouncer'
 import { SkipLinks } from '../SkipLinks'
 import { SummaryActions } from './SummaryActions'
 import { ResponsePreferences } from './ResponsePreferences'
+import { SearchToggle } from './SearchToggle'
 import { Canvas } from '../Canvas/Canvas'
 import { Button } from '../ui/button'
 import { FEATURES } from '@/config/features'
@@ -354,6 +355,7 @@ export function Chat() {
                 <div className="max-w-4xl mx-auto px-4 py-2 flex items-center justify-between">
                   <ContextIndicator {...contextUsage} />
                   <div className="flex items-center gap-2">
+                    <SearchToggle isCompact />
                     <ResponsePreferences />
                     <SummaryActions 
                       sessionId={currentChatId}

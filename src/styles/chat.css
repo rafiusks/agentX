@@ -1,5 +1,15 @@
 /* Chat-specific styles for improved readability */
 
+/* Search Indicator Animations */
+@keyframes search-pulse {
+  0%, 100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
 @layer components {
   /* Message bubbles */
   .message-user {

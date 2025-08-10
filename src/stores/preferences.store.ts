@@ -2,17 +2,22 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 export type ResponseStyle = 'ultra-concise' | 'concise' | 'balanced' | 'detailed';
+export type SearchMode = 'conservative' | 'balanced' | 'aggressive';
 
 interface PreferencesState {
   responseStyle: ResponseStyle;
   maxResponseTokens: number | null;
   includeCodeComments: boolean;
   preferBulletPoints: boolean;
+  searchMode: SearchMode;
+  forceWebSearch: boolean;
   
   setResponseStyle: (style: ResponseStyle) => void;
   setMaxResponseTokens: (tokens: number | null) => void;
   setIncludeCodeComments: (include: boolean) => void;
   setPreferBulletPoints: (prefer: boolean) => void;
+  setSearchMode: (mode: SearchMode) => void;
+  setForceWebSearch: (force: boolean) => void;
   
   getSystemPrompt: () => string;
 }
@@ -58,11 +63,15 @@ export const usePreferencesStore = create<PreferencesState>()(
       maxResponseTokens: null,
       includeCodeComments: false,
       preferBulletPoints: true,
+      searchMode: 'balanced',
+      forceWebSearch: false,
       
       setResponseStyle: (style) => set({ responseStyle: style }),
       setMaxResponseTokens: (tokens) => set({ maxResponseTokens: tokens }),
       setIncludeCodeComments: (include) => set({ includeCodeComments: include }),
       setPreferBulletPoints: (prefer) => set({ preferBulletPoints: prefer }),
+      setSearchMode: (mode) => set({ searchMode: mode }),
+      setForceWebSearch: (force) => set({ forceWebSearch: force }),
       
       getSystemPrompt: () => {
         const state = get();

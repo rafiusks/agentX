@@ -1,11 +1,14 @@
-import { memo } from 'react'
+import { memo, useMemo } from 'react'
 import { User, Bot, Cpu, Code } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useUIStore } from '../../stores/ui.store'
 import { FunctionCall } from '../FunctionCall'
 import { SimpleMessageActions } from './SimpleMessageActions'
+import { SearchIndicator } from './SearchIndicator'
+import { SourceCitations } from './SourceCitations'
 import { markdownComponents } from './markdownComponents'
+import { parseSearchMetadata } from '../../utils/parse-search-metadata'
 import type { Message } from '../../hooks/queries/useChats'
 
 interface ChatMessageProps {
@@ -19,6 +22,14 @@ export const ChatMessage = memo(function ChatMessage({ message, onRegenerate }: 
   const isFunction = message.role === 'function'
   const isAssistant = message.role === 'assistant'
   const { mode } = useUIStore()
+  
+  // Parse search metadata from message content
+  const parsedMessage = useMemo(() => {
+    if (isAssistant && message.content) {
+      return parseSearchMetadata(message.content)
+    }
+    return { content: message.content || '', sources: [] }
+  }, [isAssistant, message.content])
   
   // Debug logging for code detection - disabled to prevent re-renders
   // if (isAssistant && message.content && !message.content.includes('```')) {
@@ -102,14 +113,29 @@ export const ChatMessage = memo(function ChatMessage({ message, onRegenerate }: 
         {isUser ? (
           <p className="message-content-user" data-message-content>{message.content}</p>
         ) : (
-          <div className="prose-chat" data-message-content>
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              components={markdownComponents}
-            >
-              {message.content || (message.isStreaming ? '...' : '')}
-            </ReactMarkdown>
-          </div>
+          <>
+            {/* Search Indicator */}
+            {parsedMessage.searchMetadata && (
+              <div className="mb-3">
+                <SearchIndicator metadata={parsedMessage.searchMetadata} />
+              </div>
+            )}
+            
+            {/* Message Content */}
+            <div className="prose-chat" data-message-content>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={markdownComponents}
+              >
+                {parsedMessage.content || (message.isStreaming ? '...' : '')}
+              </ReactMarkdown>
+            </div>
+            
+            {/* Source Citations */}
+            {parsedMessage.sources.length > 0 && (
+              <SourceCitations sources={parsedMessage.sources} />
+            )}
+          </>
         )}
         
         {/* Debug info for Pro mode */}

@@ -37,21 +37,6 @@ export function useEnhancedKeyboardShortcuts() {
     targetMessage?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, []);
   
-  // Copy focused message
-  const copyFocusedMessage = useCallback(() => {
-    const focusedElement = document.activeElement;
-    const messageContent = focusedElement?.querySelector('[data-message-content]')?.textContent;
-    
-    if (messageContent) {
-      navigator.clipboard.writeText(messageContent);
-      
-      // Show visual feedback
-      const copyButton = focusedElement?.querySelector('[data-copy-button]') as HTMLElement;
-      if (copyButton) {
-        copyButton.click();
-      }
-    }
-  }, []);
   
   // Regenerate last assistant message
   const regenerateLastMessage = useCallback(() => {
@@ -99,12 +84,7 @@ export function useEnhancedKeyboardShortcuts() {
     },
     
     // Actions
-    {
-      key: 'c',
-      cmd: true,
-      action: copyFocusedMessage,
-      description: 'Copy focused message'
-    },
+    // Removed copy shortcut (Cmd+C) as requested
     // Removed cmd+r shortcut as it hijacks browser refresh
     {
       key: '/',
