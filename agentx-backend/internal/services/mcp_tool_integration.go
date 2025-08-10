@@ -351,41 +351,56 @@ func (m *MCPToolIntegration) formatWebSearchResult(result interface{}) string {
 	// Parse the result
 	resultMap, ok := result.(map[string]interface{})
 	if !ok {
-		return fmt.Sprintf("Search results: %v", result)
+		return ""
 	}
 	
 	content, ok := resultMap["content"].([]interface{})
 	if !ok || len(content) == 0 {
-		return "No search results found."
+		return ""
 	}
 	
 	// Get the text content
 	firstContent, ok := content[0].(map[string]interface{})
 	if !ok {
-		return fmt.Sprintf("Search results: %v", result)
+		return ""
 	}
 	
 	text, ok := firstContent["text"].(string)
 	if !ok {
-		return fmt.Sprintf("Search results: %v", result)
+		return ""
 	}
+	
+	// Clean the text first before parsing
+	text = m.cleanPageContent(text, len(text))
 	
 	// Parse the JSON text
 	var searchData map[string]interface{}
 	if err := json.Unmarshal([]byte(text), &searchData); err != nil {
-		return text
+		// If we can't parse as JSON, it might be raw text content - don't return it
+		m.logger.Warnf("Failed to parse search result as JSON: %v", err)
+		return ""
 	}
 	
 	results, ok := searchData["results"].([]interface{})
 	if !ok {
-		return text
+		// Don't return raw text as it might contain processing notes
+		return "Search results retrieved."
 	}
 	
 	// Format results as reference material with clear sources
 	var formatted strings.Builder
+	
+	// Don't add any prefix if we don't have valid results
+	if len(results) == 0 {
+		return ""
+	}
+	
 	formatted.WriteString("Based on current web information:\n\n")
 	
-	for _, r := range results {
+	for i, r := range results {
+		if i >= 5 { // Limit to 5 results to avoid overwhelming
+			break
+		}
 		result, ok := r.(map[string]interface{})
 		if !ok {
 			continue
@@ -394,6 +409,24 @@ func (m *MCPToolIntegration) formatWebSearchResult(result interface{}) string {
 		title, _ := result["title"].(string)
 		url, _ := result["url"].(string)
 		snippet, _ := result["snippet"].(string)
+		
+		// Check if we have full content
+		if contentData, ok := result["content"].(map[string]interface{}); ok {
+			// We have full page content, extract the most relevant part
+			if markdown, ok := contentData["markdown"].(string); ok && len(markdown) > 0 {
+				// Limit content length and clean it
+				cleanContent := m.cleanPageContent(markdown, 500) // Max 500 chars per result
+				if len(cleanContent) > 50 { // Only use if we have meaningful content
+					snippet = cleanContent
+				}
+			} else if plainText, ok := contentData["plainText"].(string); ok && len(plainText) > 0 {
+				// Fallback to plain text if markdown not available
+				cleanContent := m.cleanPageContent(plainText, 500)
+				if len(cleanContent) > 50 {
+					snippet = cleanContent
+				}
+			}
+		}
 		
 		// Extract domain from URL for source display
 		domain := url
@@ -414,7 +447,13 @@ func (m *MCPToolIntegration) formatWebSearchResult(result interface{}) string {
 		}
 	}
 	
-	return formatted.String()
+	// Final safety check - clean the output one more time
+	finalOutput := formatted.String()
+	finalOutput = strings.ReplaceAll(finalOutput, "....???........?......?................................ .....", "")
+	finalOutput = strings.ReplaceAll(finalOutput, "We need answer. Use sources.", "")
+	finalOutput = strings.TrimSpace(finalOutput)
+	
+	return finalOutput
 }
 
 // formatFetchPageResult formats fetched page content for chat
@@ -495,6 +534,63 @@ func (m *MCPToolIntegration) extractSearchMetadata(result interface{}) map[strin
 	}
 	
 	return metadata
+}
+
+// cleanPageContent removes unwanted content and limits length
+func (m *MCPToolIntegration) cleanPageContent(content string, maxLength int) string {
+	// First, remove any obvious processing instruction patterns
+	content = strings.ReplaceAll(content, "....???........?......?................................ .....", "")
+	content = strings.ReplaceAll(content, "We need answer. Use sources.", "")
+	
+	// Remove any lines that look like processing instructions or meta content
+	lines := strings.Split(content, "\n")
+	var cleanLines []string
+	
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		lowerTrimmed := strings.ToLower(trimmed)
+		
+		// Skip lines that look like AI processing notes or meta instructions
+		if strings.Contains(lowerTrimmed, "we need") ||
+			strings.Contains(lowerTrimmed, "use sources") ||
+			strings.Contains(lowerTrimmed, "probably ask") ||
+			strings.Contains(lowerTrimmed, "maybe answer") ||
+			strings.Contains(lowerTrimmed, "quick take-away") ||
+			strings.Contains(lowerTrimmed, "they pasted") ||
+			strings.Contains(lowerTrimmed, "respond concisely") ||
+			strings.Contains(lowerTrimmed, "concise overview") ||
+			strings.Contains(lowerTrimmed, "provide key points") ||
+			strings.Contains(lowerTrimmed, "summary of") ||
+			strings.HasPrefix(trimmed, "#msg-") ||
+			strings.HasPrefix(trimmed, "#") && strings.Contains(lowerTrimmed, "comp") ||
+			strings.Contains(trimmed, "???") ||
+			strings.Contains(trimmed, "....") && strings.Contains(trimmed, "?") ||
+			strings.HasPrefix(trimmed, "..............") ||
+			strings.HasPrefix(trimmed, ".. ") ||
+			len(trimmed) == 0 {
+			continue
+		}
+		
+		cleanLines = append(cleanLines, line)
+	}
+	
+	cleaned := strings.Join(cleanLines, " ")
+	cleaned = strings.TrimSpace(cleaned)
+	
+	// Limit length
+	if len(cleaned) > maxLength {
+		// Try to cut at a sentence boundary
+		if idx := strings.LastIndex(cleaned[:maxLength], ". "); idx > 0 {
+			cleaned = cleaned[:idx+1]
+		} else if idx := strings.LastIndex(cleaned[:maxLength], " "); idx > 0 {
+			// Cut at word boundary
+			cleaned = cleaned[:idx] + "..."
+		} else {
+			cleaned = cleaned[:maxLength] + "..."
+		}
+	}
+	
+	return cleaned
 }
 
 // formatSummarizeResult formats summarized content for chat

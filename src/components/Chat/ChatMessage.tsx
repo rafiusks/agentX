@@ -7,6 +7,7 @@ import { FunctionCall } from '../FunctionCall'
 import { SimpleMessageActions } from './SimpleMessageActions'
 import { SearchIndicator } from './SearchIndicator'
 import { SourceCitations } from './SourceCitations'
+import { MessageWithCitations } from './MessageWithCitations'
 import { markdownComponents } from './markdownComponents'
 import { parseSearchMetadata } from '../../utils/parse-search-metadata'
 import type { Message } from '../../hooks/queries/useChats'
@@ -121,19 +122,29 @@ export const ChatMessage = memo(function ChatMessage({ message, onRegenerate }: 
               </div>
             )}
             
-            {/* Message Content */}
-            <div className="prose-chat" data-message-content>
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                components={markdownComponents}
-              >
-                {parsedMessage.content || (message.isStreaming ? '...' : '')}
-              </ReactMarkdown>
-            </div>
+            {/* Message Content with Inline Citations */}
+            {parsedMessage.sources.length > 0 ? (
+              <MessageWithCitations 
+                content={parsedMessage.content || (message.isStreaming ? '...' : '')}
+                sources={parsedMessage.sources}
+              />
+            ) : (
+              <div className="prose-chat" data-message-content>
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={markdownComponents}
+                >
+                  {parsedMessage.content || (message.isStreaming ? '...' : '')}
+                </ReactMarkdown>
+              </div>
+            )}
             
-            {/* Source Citations */}
+            {/* Source Citations Footer */}
             {parsedMessage.sources.length > 0 && (
-              <SourceCitations sources={parsedMessage.sources} />
+              <div className="mt-3 pt-3 border-t border-border-subtle/50">
+                <div className="text-xs text-foreground-muted mb-2">Sources:</div>
+                <SourceCitations sources={parsedMessage.sources} />
+              </div>
             )}
           </>
         )}

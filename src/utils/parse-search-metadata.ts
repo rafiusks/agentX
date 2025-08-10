@@ -37,10 +37,14 @@ export function parseSearchMetadata(content: string): ParsedMessage {
   const searchHeaderIndex = lines.findIndex(line => 
     line.includes('WEB SEARCH RESULTS') || 
     line.includes('Search Results') ||
-    line.includes('Found') && line.includes('results')
+    line.includes('Found') && line.includes('results') ||
+    line.includes('Based on current web information')
   )
   
-  if (searchHeaderIndex === -1) {
+  // Also check for "According to" pattern which indicates search results are embedded
+  const hasAccordingToPattern = content.includes('According to ') && content.includes('• According to')
+  
+  if (searchHeaderIndex === -1 && !hasAccordingToPattern) {
     // No search results, but check for inline citations
     const citationPattern = /\(Source:\s*RESULT\s*(\d+),\s*([^)]+)\)/g
     let match
@@ -161,6 +165,27 @@ export function parseSearchMetadata(content: string): ParsedMessage {
         url: result?.url,
         title: result?.title
       })
+    }
+  }
+  
+  // Also extract from "According to" pattern
+  const accordingToPattern = /According to ([^:,]+):|• According to ([^:,]+):/g
+  let accordingMatch
+  let sourceIndex = 1
+  
+  while ((accordingMatch = accordingToPattern.exec(cleanContent)) !== null) {
+    const domain = (accordingMatch[1] || accordingMatch[2]).trim()
+    const sourceKey = `according-${domain}`
+    
+    if (!seenSources.has(sourceKey)) {
+      seenSources.add(sourceKey)
+      sources.push({
+        id: `${sourceIndex}`,
+        domain: domain,
+        url: domain.startsWith('http') ? domain : `https://${domain}`,
+        title: domain
+      })
+      sourceIndex++
     }
   }
   

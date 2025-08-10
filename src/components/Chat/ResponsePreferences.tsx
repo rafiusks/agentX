@@ -70,7 +70,10 @@ export function ResponsePreferences() {
         </DropdownMenuLabel>
         <DropdownMenuRadioGroup
           value={responseStyle}
-          onValueChange={(value) => setResponseStyle(value as ResponseStyle)}
+          onValueChange={(value) => {
+            console.log('[ResponsePreferences] Changing style from', responseStyle, 'to', value);
+            setResponseStyle(value as ResponseStyle);
+          }}
         >
           {(['ultra-concise', 'concise', 'balanced', 'detailed'] as ResponseStyle[]).map((style) => (
             <DropdownMenuRadioItem key={style} value={style}>

@@ -23,37 +23,13 @@ interface PreferencesState {
 }
 
 const stylePrompts: Record<ResponseStyle, string> = {
-  'ultra-concise': `You are an AI assistant. Be EXTREMELY brief.
-- Maximum 1-3 sentences for any response
-- NO explanations whatsoever unless explicitly requested with "explain"
-- NO greetings, acknowledgments, or pleasantries
-- Answer with the absolute minimum necessary
-- For code: ALWAYS wrap code in markdown code blocks with \`\`\`language
-- If asked for a list: bullet points only, no intro/outro`,
+  'ultra-concise': `Be extremely brief. Answer in 1-3 sentences maximum. No explanations unless asked. For code, use \`\`\`language blocks.`,
   
-  concise: `You are a helpful AI assistant. Provide concise, direct answers. 
-- Get to the point immediately - no introductions
-- Maximum 2-3 sentences for explanations
-- Skip phrases like "I'd be happy to", "Let me", "Here's", etc.
-- For code: ALWAYS use markdown code blocks with \`\`\`language syntax
-- Use bullet points instead of paragraphs
-- Omit obvious information`,
+  concise: `Be concise and direct. Give me the key information without fluff. A paragraph or two is fine, but get straight to the point. For longer topics, bullet points work well. Always use \`\`\`language for code blocks.`,
   
-  balanced: `You are a helpful AI assistant. Please provide clear, well-structured answers.
-- Balance brevity with clarity
-- Include essential context and explanations
-- Use formatting to improve readability
-- ALWAYS wrap code in markdown code blocks with \`\`\`language syntax
-- Provide examples when helpful
-- Keep responses focused on the question`,
+  balanced: `Be conversational yet informative. Write naturally - mix paragraphs with occasional lists or bullets when they help clarity. Think of this as explaining to a colleague: friendly but focused. Don't over-structure everything into bullet points unless it really helps. For code, use \`\`\`language blocks.`,
   
-  detailed: `You are a helpful AI assistant. Please provide comprehensive, thorough answers.
-- Include detailed explanations and context
-- Cover edge cases and alternatives
-- ALWAYS wrap code in markdown code blocks with \`\`\`language syntax
-- Provide examples and best practices
-- Explain the reasoning behind recommendations
-- Be thorough but organized`
+  detailed: `Take your time to explain things thoroughly. I want comprehensive answers with context, examples, and nuance. Walk me through your thinking. Cover different angles and edge cases. Feel free to be expansive - multiple paragraphs are welcome. For code, include detailed examples with \`\`\`language blocks and explain the important parts.`
 };
 
 export const usePreferencesStore = create<PreferencesState>()(
@@ -75,41 +51,45 @@ export const usePreferencesStore = create<PreferencesState>()(
       
       getSystemPrompt: () => {
         const state = get();
+        console.log('[PreferencesStore] Getting system prompt for style:', state.responseStyle);
         let prompt = stylePrompts[state.responseStyle];
         
-        // ALWAYS add code formatting rules
-        prompt = `IMPORTANT CODE FORMATTING RULES:
-- ALWAYS wrap code in markdown code blocks using \`\`\`language syntax
-- Use proper language identifiers (python, javascript, typescript, go, etc.)
-- Include proper line breaks and indentation in code
-- Never send code as plain text or inline text
-- For single-line code snippets, use inline code with single backticks
-
-${prompt}`;
+        // Put the response style first as highest priority
+        if (state.responseStyle === 'ultra-concise') {
+          prompt = `⚠️ CRITICAL: ${prompt}`;
+        }
         
         // Add token limit awareness
         if (state.maxResponseTokens) {
           const wordEstimate = Math.floor(state.maxResponseTokens * 0.75);
-          prompt = `TOKEN LIMIT: You have a ${state.maxResponseTokens} token limit (approximately ${wordEstimate} words). You MUST complete your response within this limit. Be concise and prioritize the most important information.\n\n${prompt}`;
           
-          // Add specific guidance based on token limit
-          if (state.maxResponseTokens <= 500) {
-            prompt += '\n- Extremely brief responses only - get to the point immediately';
-            prompt += '\n- Skip ALL explanations unless critical';
-            prompt += '\n- For code: provide minimal working examples';
-          } else if (state.maxResponseTokens <= 1000) {
-            prompt += '\n- Keep explanations very brief';
-            prompt += '\n- Focus on essential information only';
-            prompt += '\n- For code: include only key parts';
+          // For balanced/detailed modes, be gentler about limits
+          if (state.responseStyle === 'balanced' || state.responseStyle === 'detailed') {
+            prompt = `Note: Try to keep your response under ${wordEstimate} words if possible.\n\n${prompt}`;
+          } else {
+            prompt = `Keep your response under ${state.maxResponseTokens} tokens (roughly ${wordEstimate} words).\n\n${prompt}`;
+          }
+          
+          // Only add restrictive guidance for ultra-concise or with very low limits
+          if (state.responseStyle === 'ultra-concise' || state.maxResponseTokens <= 300) {
+            prompt += '\n\nBe extremely selective about what to include.';
           }
         }
         
-        if (state.preferBulletPoints) {
-          prompt += '\n- Prefer bullet points over paragraphs for multiple items';
+        // Add minimal code formatting reminder
+        if (!prompt.includes('```')) {
+          prompt = `${prompt}\n\nRemember to use \`\`\`language for code blocks.`;
         }
         
-        if (!state.includeCodeComments && state.responseStyle !== 'detailed') {
-          prompt += '\n- Provide code without extensive comments unless specifically requested';
+        if (state.preferBulletPoints) {
+          // Only add bullet preference for non-balanced modes
+          if (state.responseStyle !== 'balanced' && state.responseStyle !== 'detailed') {
+            prompt += '\n\nWhen listing multiple items, use bullet points for clarity.';
+          }
+        }
+        
+        if (!state.includeCodeComments && state.responseStyle === 'ultra-concise') {
+          prompt += ' Skip code comments.';
         }
         
         return prompt;

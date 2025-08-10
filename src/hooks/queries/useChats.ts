@@ -408,9 +408,11 @@ export const useSendStreamingMessage = () => {
       const messages = [];
       
       // Add system prompt based on user preferences
+      const systemPrompt = getSystemPrompt();
+      console.log('[useChats] System prompt being sent:', systemPrompt);
       messages.push({
         role: 'system',
-        content: getSystemPrompt()
+        content: systemPrompt
       });
       
       // If we have a summary, it's already included in contextMessages
